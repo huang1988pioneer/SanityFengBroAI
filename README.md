@@ -1,4 +1,5 @@
-sanityfengbroai-production.up.railway.app
+[sanityfengbroai-production.up.railway.app
+](https://sanityfengbroai-production.up.railway.app/)
 
 # SanityFengBroAI
 
