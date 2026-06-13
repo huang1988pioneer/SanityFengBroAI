@@ -72,29 +72,6 @@ export default function Home() {
             >
               📊 開始使用 CRUD 工作台
             </a>
-            
-            <a
-              href="/migrate"
-              style={{
-                display: "block",
-                padding: "20px",
-                background: "#f5f8fa",
-                color: "#333",
-                textDecoration: "none",
-                borderRadius: "12px",
-                fontSize: "18px",
-                fontWeight: "600",
-                transition: "background 0.2s",
-              }}
-              onMouseOver={(e) => {
-                e.currentTarget.style.background = "#e1e8ed";
-              }}
-              onMouseOut={(e) => {
-                e.currentTarget.style.background = "#f5f8fa";
-              }}
-            >
-              🚀 資料遷移工具
-            </a>
           </div>
 
           <div style={{
@@ -118,8 +95,7 @@ export default function Home() {
               <li>✅ 訂閱、食品、筆記、常用帳號等多種資料模組</li>
               <li>✅ 支援新增、編輯、複製、刪除、搜尋</li>
               <li>✅ CSV 批量匯入匯出</li>
-              <li>✅ 本地 localStorage 與 Sanity 雲端同步</li>
-              <li>✅ 從 Appwrite CSV 遷移到 Sanity</li>
+              <li>✅ Sanity 雲端資料管理</li>
             </ul>
           </div>
 
