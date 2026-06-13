@@ -3,7 +3,6 @@
 // This file is automatically updated during development when running `dev.ts`.
 
 import * as $api_sanity_module_ from "./routes/api/sanity/[module].ts";
-import * as $app from "./routes/app.tsx";
 import * as $index from "./routes/index.tsx";
 import * as $FengbroCrudApp from "./islands/FengbroCrudApp.tsx";
 import type { Manifest } from "$fresh/server.ts";
@@ -11,7 +10,6 @@ import type { Manifest } from "$fresh/server.ts";
 const manifest = {
   routes: {
     "./routes/api/sanity/[module].ts": $api_sanity_module_,
-    "./routes/app.tsx": $app,
     "./routes/index.tsx": $index,
   },
   islands: {
