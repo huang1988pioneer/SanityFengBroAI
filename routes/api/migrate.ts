@@ -17,7 +17,7 @@ const moduleTypeAliases: Record<string, string[]> = {
 };
 
 function getWriteType(moduleId: string) {
-  return moduleTypeAliases[moduleId]?.[0] || "";
+  return moduleTypeAliases[moduleId]?.[1] || "";
 }
 
 function json(data: unknown, status = 200) {
@@ -81,47 +81,51 @@ async function mutate(config: ReturnType<typeof getConfig>, mutations: Row[]) {
 }
 
 function parseCSV(csvText: string): Row[] {
-  const lines = csvText.trim().split("\n");
-  if (lines.length < 2) return [];
+  // BOM 清除
+  const text = csvText.replace(/^\uFEFF/, "");
+  const allRows: string[][] = [];
+  let row: string[] = [];
+  let cell = "";
+  let quoted = false;
 
-  const headers = lines[0].split(",").map((h) => h.trim());
-  const rows: Row[] = [];
-
-  for (let i = 1; i < lines.length; i++) {
-    const line = lines[i];
-    const values: string[] = [];
-    let currentValue = "";
-    let inQuotes = false;
-
-    for (let j = 0; j < line.length; j++) {
-      const char = line[j];
-      if (char === '"') {
-        inQuotes = !inQuotes;
-      } else if (char === "," && !inQuotes) {
-        values.push(currentValue.trim());
-        currentValue = "";
-      } else {
-        currentValue += char;
-      }
-    }
-    values.push(currentValue.trim());
-
-    if (values.length === headers.length) {
-      const row: Row = {};
-      headers.forEach((header, index) => {
-        const value = values[index];
-        // 转换布尔值
-        if (value === "true") row[header] = true;
-        else if (value === "false") row[header] = false;
-        // 转换数字
-        else if (value && !isNaN(Number(value)) && value !== "") row[header] = Number(value);
-        else row[header] = value || null;
-      });
-      rows.push(row);
+  for (let i = 0; i < text.length; i++) {
+    const char = text[i];
+    const next = text[i + 1];
+    if (char === '"' && quoted && next === '"') {
+      cell += '"';
+      i++;
+    } else if (char === '"') {
+      quoted = !quoted;
+    } else if (char === "," && !quoted) {
+      row.push(cell);
+      cell = "";
+    } else if ((char === "\n" || char === "\r") && !quoted) {
+      if (char === "\r" && next === "\n") i++;
+      row.push(cell);
+      if (row.some((v) => v.trim() !== "")) allRows.push(row);
+      row = [];
+      cell = "";
+    } else {
+      cell += char;
     }
   }
+  row.push(cell);
+  if (row.some((v) => v.trim() !== "")) allRows.push(row);
 
-  return rows;
+  if (allRows.length < 2) return [];
+  const headers = allRows[0].map((h) => h.trim());
+
+  return allRows.slice(1).map((values) => {
+    const rowObj: Row = {};
+    headers.forEach((header, index) => {
+      const value = values[index] ?? "";
+      if (value === "true") rowObj[header] = true;
+      else if (value === "false") rowObj[header] = false;
+      else if (value !== "" && !isNaN(Number(value))) rowObj[header] = Number(value);
+      else rowObj[header] = value || null;
+    });
+    return rowObj;
+  });
 }
 
 export const handler: Handlers = {
