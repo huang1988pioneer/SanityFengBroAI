@@ -1,0 +1,5 @@
+_fresh/
+.env
+.playwright-mcp/
+.reference-fengbroaiappwrite/
+fengbro-fresh-browser.png
