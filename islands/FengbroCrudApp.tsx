@@ -375,6 +375,9 @@ export default function FengbroCrudApp() {
   const [draft, setDraft] = useState<Row>(() => createEmptyRow(modules[0]));
   const [message, setMessage] = useState("請設定 Sanity 或使用環境變數");
   const [loading, setLoading] = useState(false);
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [deleteAllModal, setDeleteAllModal] = useState(false);
+  const [deleteConfirmText, setDeleteConfirmText] = useState("");
   const fileRef = useRef<HTMLInputElement>(null);
   const activeModule = moduleById[activeId];
   const isSettings = activeId === "settings";
@@ -409,6 +412,7 @@ export default function FengbroCrudApp() {
     setEditingId(null);
     setDraft(createEmptyRow(activeModule));
     setQuery("");
+    setSelectedIds(new Set());
     if (isSettings) {
       setRows([]);
       setMessage("localStorage 僅保存 Sanity 連線設定");
@@ -491,6 +495,66 @@ export default function FengbroCrudApp() {
     setDraft(copy);
     setEditingId(null);
     setMessage("已放入新增表單，確認後寫入 Sanity");
+  };
+
+  const toggleSelect = (id: string) => {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  };
+
+  const allFilteredSelected = filteredRows.length > 0 && filteredRows.every((r) => selectedIds.has(String(r.id)));
+
+  const toggleSelectAll = () => {
+    if (allFilteredSelected) {
+      setSelectedIds((prev) => {
+        const next = new Set(prev);
+        filteredRows.forEach((r) => next.delete(String(r.id)));
+        return next;
+      });
+    } else {
+      setSelectedIds((prev) => {
+        const next = new Set(prev);
+        filteredRows.forEach((r) => next.add(String(r.id)));
+        return next;
+      });
+    }
+  };
+
+  const openDeleteSelected = () => {
+    if (selectedIds.size === 0) { setMessage("請先勾選要刪除的資料"); return; }
+    setDeleteConfirmText("");
+    setDeleteAllModal(true);
+  };
+
+  const confirmDeleteSelected = async () => {
+    const required = `Delete ${activeModule.shortLabel}`;
+    if (deleteConfirmText.trim() !== required) {
+      setMessage(`請輸入「${required}」才能刪除`);
+      return;
+    }
+    setDeleteAllModal(false);
+    setLoading(true);
+    const ids = Array.from(selectedIds);
+    let deleted = 0;
+    for (const id of ids) {
+      try {
+        const response = await fetch(`/api/sanity/${activeId}`, {
+          method: "DELETE",
+          headers: authHeaders(settings),
+          body: JSON.stringify({ id }),
+        });
+        if (response.ok) deleted++;
+      } catch { /* skip */ }
+      setMessage(`刪除中... ${deleted} / ${ids.length}`);
+    }
+    setSelectedIds(new Set());
+    setMessage(`已刪除 ${deleted} / ${ids.length} 筆`);
+    await loadRows();
+    setLoading(false);
   };
 
   const importRows = async (imported: Row[], label: string) => {
@@ -663,43 +727,69 @@ export default function FengbroCrudApp() {
                 <div class="panel-toolbar">
                   <div>
                     <h3>{activeModule.shortLabel}資料</h3>
-                    <p>{filteredRows.length} / {rows.length} 筆</p>
+                    <p>{filteredRows.length} / {rows.length} 筆{selectedIds.size > 0 && <span class="selected-badge">　已選 {selectedIds.size} 筆</span>}</p>
                   </div>
-                  <label class="search-box">
-                    <span>搜尋</span>
-                    <input value={query} onInput={(event) => setQuery(event.currentTarget.value)} placeholder="名稱、備註、帳號..." />
-                  </label>
+                  <div style="display:flex;align-items:center;gap:0.5rem;flex-wrap:wrap;">
+                    {selectedIds.size > 0 && (
+                      <button type="button" class="danger-button" onClick={openDeleteSelected}>
+                        🗑 刪除已選 ({selectedIds.size})
+                      </button>
+                    )}
+                    <label class="search-box">
+                      <span>搜尋</span>
+                      <input value={query} onInput={(event) => setQuery(event.currentTarget.value)} placeholder="名稱、備註、帳號..." />
+                    </label>
+                  </div>
                 </div>
                 <div class="table-scroll">
                   <table>
                     <thead>
                       <tr>
+                        <th class="check-col">
+                          <input
+                            type="checkbox"
+                            checked={allFilteredSelected}
+                            onChange={toggleSelectAll}
+                            title={allFilteredSelected ? "取消全選" : "全選"}
+                          />
+                        </th>
                         {activeModule.fields.slice(0, 6).map((field) => <th>{field.label}</th>)}
                         <th class="action-col">操作</th>
                       </tr>
                     </thead>
                     <tbody>
-                      {filteredRows.map((row) => (
-                        <tr>
-                          {activeModule.fields.slice(0, 6).map((field) => (
-                            <td>
-                              {field.type === "url" && row[field.key]
-                                ? <a href={String(row[field.key])} target="_blank" rel="noreferrer">{String(row[field.key])}</a>
-                                : field.type === "boolean"
-                                ? <span class={row[field.key] ? "pill on" : "pill"}>{row[field.key] ? "是" : "否"}</span>
-                                : <span class={field.type === "textarea" ? "multiline" : ""}>{String(row[field.key] ?? "")}</span>}
+                      {filteredRows.map((row) => {
+                        const rowId = String(row.id);
+                        const isChecked = selectedIds.has(rowId);
+                        return (
+                          <tr class={isChecked ? "row-selected" : ""}>
+                            <td class="check-col">
+                              <input
+                                type="checkbox"
+                                checked={isChecked}
+                                onChange={() => toggleSelect(rowId)}
+                              />
                             </td>
-                          ))}
-                          <td class="row-actions">
-                            <button type="button" title="編輯" onClick={() => editRow(row)}>編輯</button>
-                            <button type="button" title="複製" onClick={() => void duplicateRow(row)}>複製</button>
-                            <button type="button" title="刪除" class="danger" onClick={() => void deleteRow(row)}>刪除</button>
-                          </td>
-                        </tr>
-                      ))}
+                            {activeModule.fields.slice(0, 6).map((field) => (
+                              <td>
+                                {field.type === "url" && row[field.key]
+                                  ? <a href={String(row[field.key])} target="_blank" rel="noreferrer">{String(row[field.key])}</a>
+                                  : field.type === "boolean"
+                                  ? <span class={row[field.key] ? "pill on" : "pill"}>{row[field.key] ? "是" : "否"}</span>
+                                  : <span class={field.type === "textarea" ? "multiline" : ""}>{String(row[field.key] ?? "")}</span>}
+                              </td>
+                            ))}
+                            <td class="row-actions">
+                              <button type="button" title="編輯" onClick={() => editRow(row)}>編輯</button>
+                              <button type="button" title="複製" onClick={() => void duplicateRow(row)}>複製</button>
+                              <button type="button" title="刪除" class="danger" onClick={() => void deleteRow(row)}>刪除</button>
+                            </td>
+                          </tr>
+                        );
+                      })}
                       {filteredRows.length === 0 && (
                         <tr>
-                          <td colSpan={activeModule.fields.slice(0, 6).length + 1} class="empty-cell">沒有符合的 Sanity 資料</td>
+                          <td colSpan={activeModule.fields.slice(0, 6).length + 2} class="empty-cell">沒有符合的 Sanity 資料</td>
                         </tr>
                       )}
                     </tbody>
@@ -744,6 +834,41 @@ export default function FengbroCrudApp() {
           </>
         )}
       </main>
+
+      {/* 刪除確認彈窗 */}
+      {deleteAllModal && (
+        <div class="modal-overlay" onClick={(e) => { if (e.target === e.currentTarget) setDeleteAllModal(false); }}>
+          <div class="modal-box">
+            <h3 class="modal-title">⚠️ 確認批次刪除</h3>
+            <p class="modal-desc">
+              即將刪除 <strong>{selectedIds.size} 筆</strong>「{activeModule.label}」資料，此操作<strong>無法復原</strong>。
+            </p>
+            <p class="modal-hint">
+              請輸入 <code>Delete {activeModule.shortLabel}</code> 確認刪除：
+            </p>
+            <input
+              class="modal-input"
+              type="text"
+              placeholder={`Delete ${activeModule.shortLabel}`}
+              value={deleteConfirmText}
+              onInput={(e) => setDeleteConfirmText(e.currentTarget.value)}
+              onKeyDown={(e) => { if (e.key === "Enter") void confirmDeleteSelected(); }}
+              autoFocus
+            />
+            <div class="modal-actions">
+              <button type="button" class="ghost-button" onClick={() => setDeleteAllModal(false)}>取消</button>
+              <button
+                type="button"
+                class="danger-button"
+                disabled={deleteConfirmText.trim() !== `Delete ${activeModule.shortLabel}`}
+                onClick={() => void confirmDeleteSelected()}
+              >
+                確認刪除 {selectedIds.size} 筆
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

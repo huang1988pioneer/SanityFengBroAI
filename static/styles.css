@@ -582,3 +582,123 @@ td a {
     min-height: 74px;
   }
 }
+
+/* ── Danger Button ── */
+.danger-button {
+  padding: 0.45rem 1rem;
+  border-radius: 6px;
+  border: none;
+  background: var(--danger);
+  color: #fff;
+  font-size: 0.8rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: opacity 0.15s;
+}
+.danger-button:hover { opacity: 0.85; }
+.danger-button:disabled { opacity: 0.4; cursor: not-allowed; }
+
+/* ── Checkbox col ── */
+.check-col {
+  width: 36px;
+  text-align: center;
+  padding: 0 6px !important;
+}
+.check-col input[type="checkbox"] {
+  width: 15px;
+  height: 15px;
+  cursor: pointer;
+  accent-color: var(--danger);
+}
+
+/* ── Selected row highlight ── */
+tr.row-selected td {
+  background: #fff1f1;
+}
+
+/* ── Selected badge ── */
+.selected-badge {
+  display: inline-block;
+  margin-left: 6px;
+  padding: 1px 8px;
+  border-radius: 99px;
+  background: var(--danger);
+  color: #fff;
+  font-size: 0.72rem;
+  font-weight: 700;
+  vertical-align: middle;
+}
+
+/* ── Modal overlay ── */
+.modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(15, 23, 42, 0.55);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+  backdrop-filter: blur(3px);
+  padding: 20px;
+}
+
+.modal-box {
+  background: var(--panel);
+  border-radius: 14px;
+  padding: 2rem 2.2rem;
+  max-width: 460px;
+  width: 100%;
+  box-shadow: 0 24px 64px rgba(15, 23, 42, 0.22);
+  animation: modal-in 0.18s ease;
+}
+
+@keyframes modal-in {
+  from { transform: translateY(16px) scale(0.97); opacity: 0; }
+  to   { transform: none; opacity: 1; }
+}
+
+.modal-title {
+  margin: 0 0 0.75rem;
+  font-size: 1.1rem;
+  color: var(--danger);
+}
+
+.modal-desc {
+  margin: 0 0 0.75rem;
+  color: var(--ink);
+  font-size: 0.9rem;
+  line-height: 1.6;
+}
+
+.modal-hint {
+  margin: 0 0 0.6rem;
+  color: var(--muted);
+  font-size: 0.85rem;
+}
+
+.modal-hint code {
+  background: #f1f5f9;
+  border-radius: 4px;
+  padding: 1px 6px;
+  font-family: monospace;
+  color: var(--danger);
+  font-weight: 700;
+}
+
+.modal-input {
+  width: 100%;
+  padding: 0.55rem 0.8rem;
+  border: 1.5px solid var(--line);
+  border-radius: 7px;
+  font-size: 0.9rem;
+  margin-bottom: 1.2rem;
+  transition: border-color 0.15s;
+  outline: none;
+}
+.modal-input:focus { border-color: var(--danger); }
+
+.modal-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.75rem;
+}
