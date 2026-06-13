@@ -389,7 +389,8 @@ export default function FengbroCrudApp() {
       const data = await response.json();
       if (!response.ok) throw new Error(data.error || "Sanity 讀取失敗");
       setRows(data.rows || []);
-      setMessage(data.error || `已從 Sanity 載入 ${data.rows?.length ?? 0} 筆`);
+      const typeHint = data.type ? `（type: ${data.type}）` : "";
+      setMessage(data.error || `已從 Sanity 載入 ${data.rows?.length ?? 0} 筆${typeHint}`);
     } catch (error) {
       setRows([]);
       setMessage(error instanceof Error ? error.message : "Sanity 讀取失敗");
@@ -444,7 +445,8 @@ export default function FengbroCrudApp() {
       });
       const data = await response.json();
       if (!response.ok) throw new Error(data.error || "Sanity 寫入失敗");
-      setMessage(editingId ? "已更新 Sanity 文件" : "已新增 Sanity 文件");
+      const typeHint = data.type ? `（type: ${data.type}）` : "";
+      setMessage(editingId ? `已更新 Sanity 文件${typeHint}` : `已新增 Sanity 文件${typeHint}`);
       setEditingId(null);
       setDraft(createEmptyRow(activeModule));
       await loadRows();
@@ -505,7 +507,8 @@ export default function FengbroCrudApp() {
       });
       const data = await response.json();
       if (!response.ok) throw new Error(data.error || "Sanity 匯入失敗");
-      setMessage(`${label}：已匯入 ${imported.length} 筆到 Sanity`);
+      const typeHint = data.type ? `（type: ${data.type}）` : "";
+      setMessage(`${label}：已匯入 ${imported.length} 筆到 Sanity${typeHint}`);
       await loadRows();
     } catch (error) {
       setMessage(error instanceof Error ? error.message : "Sanity 匯入失敗");
@@ -527,6 +530,44 @@ export default function FengbroCrudApp() {
     localStorage.setItem(settingsKey, JSON.stringify(settings));
     setMessage("已保存 Sanity 設定到 localStorage");
     void loadRows("subscription", settings);
+  };
+
+  const [diagResult, setDiagResult] = useState<string | null>(null);
+
+  const testConnection = async () => {
+    setLoading(true);
+    setDiagResult(null);
+    try {
+      const response = await fetch(`/api/sanity/subscription`, {
+        method: "PATCH",
+        headers: authHeaders(settings),
+      });
+      const data = await response.json();
+      const lines: string[] = [];
+      const info = data.info || {};
+      lines.push(`狀態: ${data.ok ? "✅ 連線正常" : "❌ 連線失敗"}`);
+      lines.push(`projectId: ${info.projectId}`);
+      lines.push(`dataset: ${info.dataset}`);
+      lines.push(`apiVersion: ${info.apiVersion}`);
+      if (Array.isArray(info.typeAliases)) lines.push(`typeAliases: ${info.typeAliases.join(", ")}`);
+      lines.push(`hasToken: ${info.hasToken ? "是" : "否"}`);
+      lines.push(`tokenPrefix: ${info.tokenPrefix}`);
+      if (info.readOk !== undefined) lines.push(`讀取測試: ${info.readOk ? "✅ 成功" : "❌ 失敗"}`);
+      if (Array.isArray(info.readByType) && info.readByType.length > 0) {
+        lines.push(`現有文件: ${info.readByType.map((item: { type: string; count: number }) => `${item.type}=${item.count}`).join(", ")}`);
+      }
+      if (info.writeOk !== undefined) lines.push(`寫入測試: ${info.writeOk ? "✅ 成功" : "❌ 失敗"}`);
+      if (info.cleanupOk !== undefined) lines.push(`清理測試: ${info.cleanupOk ? "✅ 成功" : "❌ 失敗"}`);
+      if (data.error || info.error) lines.push(`錯誤: ${data.error || info.error}`);
+      setDiagResult(lines.join("\n"));
+      setMessage(data.ok ? "Sanity 連線診斷通過" : `Sanity 診斷失敗：${data.error || info.error}`);
+    } catch (error) {
+      const msg = error instanceof Error ? error.message : "診斷請求失敗";
+      setDiagResult(`❌ 請求失敗：${msg}`);
+      setMessage(msg);
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -599,7 +640,13 @@ export default function FengbroCrudApp() {
                   <input value={settings.apiVersion} onInput={(event) => setSettings({ ...settings, apiVersion: event.currentTarget.value })} />
                 </label>
               </div>
-              <button class="save-button settings-save" type="button" onClick={saveSettings}>保存設定</button>
+              <div style="display:flex;gap:0.75rem;flex-wrap:wrap;margin-top:1rem;">
+                <button class="save-button settings-save" type="button" onClick={saveSettings}>保存設定</button>
+                <button class="ghost-button" type="button" onClick={() => void testConnection()} disabled={loading}>🔍 測試 Sanity 連線</button>
+              </div>
+              {diagResult && (
+                <pre style="margin-top:1rem;padding:1rem;background:var(--surface2,#1e1e2e);border-radius:0.5rem;font-size:0.78rem;line-height:1.7;white-space:pre-wrap;color:var(--text1,#cdd6f4);border:1px solid var(--border,#313244);">{diagResult}</pre>
+              )}
             </div>
           </section>
         ) : (
