@@ -1,3 +1,5 @@
+sanityfengbroai-production.up.railway.app
+
 # SanityFengBroAI
 
 Deno Fresh 版鋒兄 AI CRUD 工作台。表格資料直接使用 Sanity；瀏覽器 `localStorage` 只保存「鋒兄設定」中的 Sanity 連線資訊。
