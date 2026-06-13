@@ -719,7 +719,7 @@ export default function FengbroCrudApp() {
               <div class="metric"><span>Sanity 筆數</span><strong>{stats.total}</strong></div>
               <div class="metric"><span>金額合計</span><strong>{stats.money.toLocaleString("zh-TW")}</strong></div>
               <div class="metric"><span>續訂中</span><strong>{stats.boolCount}</strong></div>
-              <div class="metric status"><span>狀態</span><strong>{loading ? "處理中..." : message}</strong></div>
+              <div class="metric status"><span>狀態</span><strong style="display:flex;align-items:center;gap:6px;">{loading && <span class="spinner" aria-hidden="true" />}{message}</strong></div>
             </section>
 
             <section class="content-grid">
