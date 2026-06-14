@@ -377,7 +377,10 @@ function getYouTubeEmbedUrl(url: string) {
   }
 }
 
-function MediaPreview({ moduleId, url, compact = false }: { moduleId: string; url: string; compact?: boolean }) {
+function MediaPreview(
+  { moduleId, url, compact = false, onExpand }:
+    { moduleId: string; url: string; compact?: boolean; onExpand?: (url: string) => void },
+) {
   const source = url.trim();
   if (!source || !previewModuleIds.has(moduleId)) return null;
 
@@ -414,8 +417,23 @@ function MediaPreview({ moduleId, url, compact = false }: { moduleId: string; ur
 
   if (moduleId === "documents") {
     if (isPdf) {
+      const previewClass = compact ? "media-preview document compact" : "media-preview document";
+      if (compact && onExpand) {
+        return (
+          <button
+            type="button"
+            class={`${previewClass} preview-trigger`}
+            onClick={() => onExpand(source)}
+            aria-label="全寬展開文件預覽"
+            title="點一下全寬展開"
+          >
+            <iframe src={source} title="文件預覽" loading="lazy" />
+            <span class="preview-trigger-badge">點一下全寬展開</span>
+          </button>
+        );
+      }
       return (
-        <div class={compact ? "media-preview document compact" : "media-preview document"}>
+        <div class={previewClass}>
           <iframe src={source} title="文件預覽" loading="lazy" />
         </div>
       );
@@ -895,6 +913,7 @@ export default function FengbroCrudApp() {
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [deleteAllModal, setDeleteAllModal] = useState(false);
   const [deleteConfirmText, setDeleteConfirmText] = useState("");
+  const [expandedDocumentUrl, setExpandedDocumentUrl] = useState("");
   const fileRef = useRef<HTMLInputElement>(null);
   const uploadRef = useRef<HTMLInputElement>(null);
   const activeModule = moduleById[activeId];
@@ -938,6 +957,7 @@ export default function FengbroCrudApp() {
     setDraft(createEmptyRow(activeModule));
     setQuery("");
     setSelectedIds(new Set());
+    setExpandedDocumentUrl("");
     if (isSettings) {
       setRows([]);
       setMessage("localStorage 僅保存 Sanity 連線設定");
@@ -1030,6 +1050,15 @@ export default function FengbroCrudApp() {
       return next;
     });
   };
+
+  useEffect(() => {
+    if (!expandedDocumentUrl) return;
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") setExpandedDocumentUrl("");
+    };
+    globalThis.addEventListener("keydown", onKeyDown);
+    return () => globalThis.removeEventListener("keydown", onKeyDown);
+  }, [expandedDocumentUrl]);
 
   const allFilteredSelected = filteredRows.length > 0 && filteredRows.every((r) => selectedIds.has(String(r.id)));
 
@@ -1376,7 +1405,12 @@ export default function FengbroCrudApp() {
                                 {field.type === "url" && row[field.key]
                                   ? (
                                     <div class="media-cell">
-                                      <MediaPreview moduleId={activeId} url={String(row[field.key])} compact />
+                                      <MediaPreview
+                                        moduleId={activeId}
+                                        url={String(row[field.key])}
+                                        compact
+                                        onExpand={activeId === "documents" ? setExpandedDocumentUrl : undefined}
+                                      />
                                       <a href={String(row[field.key])} target="_blank" rel="noreferrer">{String(row[field.key])}</a>
                                     </div>
                                   )
@@ -1498,6 +1532,28 @@ export default function FengbroCrudApp() {
               >
                 確認刪除 {selectedIds.size} 筆
               </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {expandedDocumentUrl && (
+        <div
+          class="document-lightbox"
+          onClick={(event) => {
+            if (event.target === event.currentTarget) setExpandedDocumentUrl("");
+          }}
+        >
+          <div class="document-lightbox-shell">
+            <div class="document-lightbox-bar">
+              <strong>文件預覽</strong>
+              <div class="document-lightbox-actions">
+                <a class="ghost-button" href={expandedDocumentUrl} target="_blank" rel="noreferrer">另開文件</a>
+                <button type="button" class="primary-button" onClick={() => setExpandedDocumentUrl("")}>關閉</button>
+              </div>
+            </div>
+            <div class="document-lightbox-frame">
+              <iframe src={expandedDocumentUrl} title="全寬文件預覽" loading="lazy" />
             </div>
           </div>
         </div>
