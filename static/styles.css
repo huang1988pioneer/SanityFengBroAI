@@ -251,9 +251,7 @@ svg {
 
 .workspace {
   min-width: 0;
-  width: min(860px, calc(100vw - 176px));
-  margin-left: 18px;
-  padding: 16px 0 48px;
+  padding: 16px 24px 48px 18px;
 }
 
 .surface-bar {
