@@ -4,6 +4,10 @@
 
 import * as $api_sanity_asset_module_ from "./routes/api/sanity-asset/[module].ts";
 import * as $api_sanity_module_ from "./routes/api/sanity/[module].ts";
+import * as $api_tools_finance from "./routes/api/tools/finance.ts";
+import * as $api_tools_landtop from "./routes/api/tools/landtop.ts";
+import * as $api_tools_resolve from "./routes/api/tools/resolve.ts";
+import * as $api_tools_tube from "./routes/api/tools/tube.ts";
 import * as $index from "./routes/index.tsx";
 import * as $FengbroCrudApp from "./islands/FengbroCrudApp.tsx";
 import type { Manifest } from "$fresh/server.ts";
@@ -12,6 +16,10 @@ const manifest = {
   routes: {
     "./routes/api/sanity-asset/[module].ts": $api_sanity_asset_module_,
     "./routes/api/sanity/[module].ts": $api_sanity_module_,
+    "./routes/api/tools/finance.ts": $api_tools_finance,
+    "./routes/api/tools/landtop.ts": $api_tools_landtop,
+    "./routes/api/tools/resolve.ts": $api_tools_resolve,
+    "./routes/api/tools/tube.ts": $api_tools_tube,
     "./routes/index.tsx": $index,
   },
   islands: {

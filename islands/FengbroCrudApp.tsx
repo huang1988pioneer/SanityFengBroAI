@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "preact/hooks";
+﻿import { useEffect, useMemo, useRef, useState } from "preact/hooks";
 
 type FieldType = "text" | "number" | "date" | "datetime" | "url" | "boolean" | "textarea" | "password";
 
@@ -488,90 +488,133 @@ const toolTabs = [
 
 type ToolTabId = typeof toolTabs[number]["id"];
 
-const priceHistory = [
-  { date: "06/10", price: 12999 },
-  { date: "06/11", price: 12999 },
-  { date: "06/12", price: 12999 },
-  { date: "06/13", price: 12999 },
-  { date: "06/14", price: 12199 },
+type PriceResult = {
+  title: string;
+  url: string;
+  source: string;
+  currency: string;
+  currentPrice: number | null;
+  resolvedAt: string;
+  notice?: string;
+  history: Array<{ date: string; price: number | null; currency?: string }>;
+};
+
+type MobileProduct = {
+  id: string;
+  brand: string;
+  name: string;
+  suggestedPrice?: number | null;
+  landtopPrice?: number | null;
+  landtopPriceLabel?: string | null;
+  sourceUrl?: string | null;
+  jyesPrice?: number | null;
+  jyesPriceLabel?: string | null;
+  jyesUrl?: string | null;
+  bestPrice?: number | null;
+  bestSourceLabel?: string | null;
+};
+
+type MobileResult = {
+  source: string;
+  query: string;
+  total: number;
+  fetchedAt: string;
+  products: MobileProduct[];
+  warnings?: string[];
+  sourceUrls?: string[];
+};
+
+type TubeVideo = {
+  videoId: string;
+  title: string;
+  url: string;
+  publishedAt: string;
+  updatedAt: string;
+  thumbnail: string;
+  channelTitle?: string;
+};
+
+type TubeChannel = {
+  sourceUrl: string;
+  channelId: string;
+  title: string;
+  videos: TubeVideo[];
+  error?: string;
+};
+
+type TubeResult = {
+  fetchedAt: string;
+  sourceCount: number;
+  defaultSourceCount: number;
+  channels: TubeChannel[];
+  recentVideos: TubeVideo[];
+};
+
+type FinanceQuote = {
+  id: string;
+  name: string;
+  displayName: string;
+  symbol: string;
+  sourceUrl: string;
+  group: string;
+  price: number | null;
+  change: number | null;
+  changePercent: number | null;
+  currency: string;
+  error?: string;
+  isThresholdAlert?: boolean;
+};
+
+type FinanceResult = {
+  fetchedAt: string;
+  source: string;
+  quotes: FinanceQuote[];
+  financeAlerts: Array<{ id: string; message: string; sourceUrl: string }>;
+  shillerPe: {
+    current: number | null;
+    recordHigh: number;
+    recordHighDate: string;
+    isRecordHigh: boolean;
+  };
+};
+
+const defaultPriceUrl = "https://24h.pchome.com.tw/prod/DRAHCO-A900J8363";
+const quickPriceLinks = [
+  { title: "PChome Crucial T500 SSD", url: "https://24h.pchome.com.tw/prod/DRAHCO-A900J8363" },
+  { title: "PChome WD SSD", url: "https://24h.pchome.com.tw/prod/DYALS1-A900JUGXV" },
 ];
 
-const recentPriceLinks = [
-  { title: "PChome 商品 DRAHCO-A900J8363", url: "https://24h.pchome.com.tw/prod/DRAHCO-A900J8363" },
-  { title: "PChome 商品 DYALS1-A900JUGXV", url: "https://24h.pchome.com.tw/prod/DYALS1-A900JUGXV" },
+const defaultTubeChannels = [
+  { alias: "吉利小妹", sourceUrl: "https://www.youtube.com/@jilixiaoshimei/videos" },
+  { alias: "一個鳳梨", sourceUrl: "https://www.youtube.com/@henren778/videos" },
+  { alias: "Sun Channel", sourceUrl: "https://www.youtube.com/@SunChannelHK/videos" },
 ];
 
-const phoneRows = [
-  { brand: "Apple", name: "iPhone 17", storage: "128GB", base: 29900, current: 27400, change: -2500 },
-  { brand: "Apple", name: "iPhone 17 Pro", storage: "256GB", base: 39900, current: 38200, change: -1700 },
-  { brand: "Samsung", name: "Samsung A17", storage: "6G 128GB", base: 7490, current: 4990, change: -2500 },
-  { brand: "Samsung", name: "Samsung A17", storage: "4G 64GB", base: 6990, current: 4990, change: -2000 },
-];
+function formatMoney(value: number | null | undefined, currency = "TWD") {
+  if (typeof value !== "number") return "-";
+  return new Intl.NumberFormat("zh-TW", {
+    style: currency ? "currency" : "decimal",
+    currency: currency || "TWD",
+    maximumFractionDigits: currency === "TWD" ? 0 : 2,
+  }).format(value);
+}
 
-const tubeVideos = [
-  { channel: "吉利小師妹", title: "中共砸2万亿并AI｜六爻预测中美AI决战｜普通人如何吃上肉", time: "06/14 上午10:55" },
-  { channel: "一个狠人", title: "A股「涨死」全解剖：屠刀从散户转向机构，耐心资本遍你只准量", time: "06/14 上午08:58" },
-  { channel: "马斯克 NEWS", title: "马斯克固人财富被腰斩，太牛了。和朋友们一起感慨一下。", time: "06/14 上午02:20" },
-  { channel: "张内咸脱口秀", title: "一个「脱北者」拼命想回平壤，为什么中国反而最尴尬？EP076", time: "06/13 下午11:12" },
-  { channel: "Sun Channel", title: "一句「為你好」正在親手摧毀你的家庭？孩子越來越反叛", time: "06/13 下午09:28" },
-  { channel: "马国库", title: "一个视频了解朝鲜政治：金正恩如何清算父亲？", time: "06/13 下午08:15" },
-];
+function formatNumber(value: number | null | undefined, digits = 2) {
+  return typeof value === "number" ? value.toLocaleString("zh-TW", { maximumFractionDigits: digits }) : "-";
+}
 
-const tubeChannelCards = [
-  {
-    channel: "吉利小師妹",
-    count: 10,
-    videos: [
-      { title: "中共砸2万亿并AI｜六爻预测中美AI决战", date: "06/14 上午10:55", thumb: "https://i.ytimg.com/vi/0vC6h6JpQdQ/hqdefault.jpg" },
-      { title: "周易預測：閉關鎖國加速資產鎖死", date: "06/07 下午1:25", thumb: "https://i.ytimg.com/vi/dQw4w9WgXcQ/hqdefault.jpg" },
-      { title: "習下禁令？面斥女相總長反骨", date: "05/24 下午09:31", thumb: "https://i.ytimg.com/vi/ScMzIvxBSi4/hqdefault.jpg" },
-      { title: "升斗小民要逃亡？伊朗局勢升溫", date: "05/17 下午10:42", thumb: "https://i.ytimg.com/vi/kJQP7kiw5Fk/hqdefault.jpg" },
-      { title: "天災or政治博弈 周易揭秘山西礦難", date: "05/26 下午09:21", thumb: "https://i.ytimg.com/vi/9bZkp7q19f0/hqdefault.jpg" },
-    ],
-  },
-  {
-    channel: "一個狠人",
-    count: 10,
-    videos: [
-      { title: "A股漲死全解剖：散戶與機構轉向", date: "06/14 上午08:58", thumb: "https://i.ytimg.com/vi/tgbNymZ7vqY/hqdefault.jpg" },
-      { title: "房客最後出逃的機會", date: "06/11 下午08:20", thumb: "https://i.ytimg.com/vi/M7lc1UVf-VE/hqdefault.jpg" },
-      { title: "新華網全球最貴人工智能", date: "06/08 下午04:10", thumb: "https://i.ytimg.com/vi/e-ORhEE9VVg/hqdefault.jpg" },
-      { title: "人性笑砍刀鐮刀 股市反殺指南", date: "06/06 下午09:14", thumb: "https://i.ytimg.com/vi/uelHwf8o7_U/hqdefault.jpg" },
-      { title: "AI干掉一半工作，你的專業還安全嗎", date: "06/03 下午10:07", thumb: "https://i.ytimg.com/vi/CevxZvSJLk8/hqdefault.jpg" },
-    ],
-  },
-];
+function formatDateTime(value: string) {
+  if (!value) return "-";
+  const time = new Date(value);
+  return Number.isNaN(time.getTime()) ? value : time.toLocaleString("zh-TW", { hour12: false });
+}
 
-const phoneHistoryPoints = ["06/08", "06/09", "06/10", "06/11", "06/12", "06/13", "06/14"];
-
-const financeGroups = [
-  {
-    title: "台股與美股",
-    items: [
-      { name: "Taiwan Weighted", value: "22,500.00", change: "+230.87", trend: "up" },
-      { name: "S&P 500 Index", value: "5,431.46", change: "+17.85", trend: "up" },
-      { name: "NASDAQ Composite", value: "17,688.84", change: "+79.88", trend: "up" },
-      { name: "CBOE Volatility Index", value: "17.68", change: "-1.72", trend: "down" },
-    ],
-  },
-  {
-    title: "匯率與估值",
-    items: [
-      { name: "USD/TWD", value: "31.61", change: "+0.05", trend: "up" },
-      { name: "Schiller PE Ratio", value: "41.43", change: "+0.21", trend: "up" },
-      { name: "美元指數", value: "98.12", change: "-0.18", trend: "down" },
-    ],
-  },
-  {
-    title: "加密與商品",
-    items: [
-      { name: "Bitcoin USD", value: "64,472.5", change: "+264.88", trend: "up" },
-      { name: "Ethereum USD", value: "1,681.02", change: "+11.35", trend: "up" },
-      { name: "Gold COMEX", value: "4,239.9", change: "+6.81", trend: "up" },
-      { name: "Crude Oil", value: "87.33", change: "-0.52", trend: "down" },
-    ],
-  },
-];
+function groupQuotes(quotes: FinanceQuote[]) {
+  return quotes.reduce<Record<string, FinanceQuote[]>>((groups, quote) => {
+    groups[quote.group] = [...(groups[quote.group] || []), quote];
+    return groups;
+  }, {});
+}
 
 function ToolWorkbench({
   activeTool,
@@ -580,37 +623,143 @@ function ToolWorkbench({
   activeTool: ToolTabId;
   setActiveTool: (id: ToolTabId) => void;
 }) {
-  const [productUrl, setProductUrl] = useState(recentPriceLinks[0].url);
-  const [priceCheckedUrl, setPriceCheckedUrl] = useState(recentPriceLinks[0].url);
-  const [priceCheckedAt, setPriceCheckedAt] = useState("尚未查詢");
-  const [appleQuery, setAppleQuery] = useState("iPhone 17");
-  const [samsungQuery, setSamsungQuery] = useState("Samsung 26");
-  const [phoneStatus, setPhoneStatus] = useState("等待搜尋");
-  const [collapsed, setCollapsed] = useState<Record<string, boolean>>({});
-  const [tubeFilter, setTubeFilter] = useState("全部頻道");
-  const [tubeUpdatedAt, setTubeUpdatedAt] = useState("2026/6/14 上午11:37:19");
-  const [channelCount, setChannelCount] = useState(24);
-  const [financeUpdatedAt, setFinanceUpdatedAt] = useState("2026/6/14 上午11:40:00");
-  const minPrice = Math.min(...priceHistory.map((item) => item.price));
-  const maxPrice = Math.max(...priceHistory.map((item) => item.price));
-  const priceProductId = priceCheckedUrl.split("/").filter(Boolean).at(-1) || "UNKNOWN";
-  const nowText = () => new Date().toLocaleString("zh-TW", { hour12: false });
+  const [productUrl, setProductUrl] = useState(defaultPriceUrl);
+  const [priceResult, setPriceResult] = useState<PriceResult | null>(null);
+  const [priceLoading, setPriceLoading] = useState(false);
+  const [priceError, setPriceError] = useState("");
+  const [phoneQuery, setPhoneQuery] = useState("iPhone 17");
+  const [mobileResult, setMobileResult] = useState<MobileResult | null>(null);
+  const [mobileLoading, setMobileLoading] = useState(false);
+  const [mobileError, setMobileError] = useState("");
+  const [tubeResult, setTubeResult] = useState<TubeResult | null>(null);
+  const [tubeLoading, setTubeLoading] = useState(false);
+  const [tubeError, setTubeError] = useState("");
+  const [tubeLoadedOnce, setTubeLoadedOnce] = useState(false);
+  const [tubeChannels, setTubeChannels] = useState(defaultTubeChannels);
+  const [tubeAlias, setTubeAlias] = useState("");
+  const [tubeUrl, setTubeUrl] = useState("");
+  const [financeResult, setFinanceResult] = useState<FinanceResult | null>(null);
+  const [financeLoading, setFinanceLoading] = useState(false);
+  const [financeError, setFinanceError] = useState("");
+  const [financeLoadedOnce, setFinanceLoadedOnce] = useState(false);
 
-  const filteredTubeVideos = tubeFilter === "全部頻道"
-    ? tubeVideos
-    : tubeVideos.filter((video) => video.channel === tubeFilter);
-  const channels = ["全部頻道", ...Array.from(new Set(tubeVideos.map((video) => video.channel)))];
-  const phoneSearchText = `${appleQuery} ${samsungQuery}`.toLowerCase();
-  const filteredPhoneRows = phoneRows.filter((row) =>
-    `${row.brand} ${row.name} ${row.storage}`.toLowerCase().includes(phoneSearchText.trim()) ||
-    row.name.toLowerCase().includes(appleQuery.trim().toLowerCase()) ||
-    row.name.toLowerCase().includes(samsungQuery.trim().toLowerCase())
-  );
-  const visiblePhoneRows = filteredPhoneRows.length > 0 ? filteredPhoneRows : phoneRows;
+  const priceSummary = useMemo(() => {
+    const prices = (priceResult?.history || [])
+      .map((item) => item.price)
+      .filter((item): item is number => typeof item === "number");
+    if (!prices.length) return null;
+    return {
+      current: priceResult?.currentPrice ?? prices.at(-1) ?? null,
+      high: Math.max(...prices),
+      low: Math.min(...prices),
+    };
+  }, [priceResult]);
+
+  const financeGroups = useMemo(() => groupQuotes(financeResult?.quotes || []), [financeResult]);
+  const headlineQuotes = useMemo(() => {
+    const ids = new Set(["taiex", "tsmc", "dow", "sp500", "nasdaq", "vix", "bitcoin", "usd-twd"]);
+    return (financeResult?.quotes || []).filter((quote) => ids.has(quote.id));
+  }, [financeResult]);
+
+  const runPriceCompare = async () => {
+    const nextUrl = productUrl.trim();
+    if (!nextUrl) {
+      setPriceError("請輸入商品網址");
+      return;
+    }
+    setPriceLoading(true);
+    setPriceError("");
+    try {
+      const response = await fetch(`/api/tools/resolve?url=${encodeURIComponent(nextUrl)}&t=${Date.now()}`);
+      const result = await response.json() as PriceResult & { error?: string };
+      if (!response.ok || result.error) throw new Error(result.error || "價格查詢失敗");
+      setPriceResult(result);
+    } catch (error) {
+      setPriceError(error instanceof Error ? error.message : "價格查詢失敗");
+    } finally {
+      setPriceLoading(false);
+    }
+  };
+
+  const loadMobile = async (query = phoneQuery) => {
+    setMobileLoading(true);
+    setMobileError("");
+    try {
+      const response = await fetch(`/api/tools/landtop?query=${encodeURIComponent(query)}&t=${Date.now()}`);
+      const result = await response.json() as MobileResult & { error?: string };
+      if (!response.ok || result.error) throw new Error(result.error || "手機比價資料讀取失敗");
+      setMobileResult(result);
+    } catch (error) {
+      setMobileError(error instanceof Error ? error.message : "手機比價資料讀取失敗");
+    } finally {
+      setMobileLoading(false);
+    }
+  };
+
+  const loadTube = async () => {
+    setTubeLoadedOnce(true);
+    setTubeLoading(true);
+    setTubeError("");
+    try {
+      const response = await fetch("/api/tools/tube", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ channels: tubeChannels }),
+      });
+      const result = await response.json() as TubeResult & { error?: string };
+      if (!response.ok || result.error) throw new Error(result.error || "Tube 資料讀取失敗");
+      setTubeResult(result);
+    } catch (error) {
+      setTubeError(error instanceof Error ? error.message : "Tube 資料讀取失敗");
+    } finally {
+      setTubeLoading(false);
+    }
+  };
+
+  const loadFinance = async () => {
+    setFinanceLoadedOnce(true);
+    setFinanceLoading(true);
+    setFinanceError("");
+    try {
+      const response = await fetch(`/api/tools/finance?t=${Date.now()}`);
+      const result = await response.json() as FinanceResult & { error?: string };
+      if (!response.ok || result.error) throw new Error(result.error || "金融資料讀取失敗");
+      setFinanceResult(result);
+    } catch (error) {
+      setFinanceError(error instanceof Error ? error.message : "金融資料讀取失敗");
+    } finally {
+      setFinanceLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    void runPriceCompare();
+  }, []);
+
+  useEffect(() => {
+    if (activeTool === "phone" && !mobileResult && !mobileLoading) void loadMobile();
+    if (activeTool === "tube" && !tubeLoadedOnce && !tubeLoading) void loadTube();
+    if (activeTool === "finance" && !financeLoadedOnce && !financeLoading) void loadFinance();
+  }, [activeTool]);
+
+  const addTubeChannel = () => {
+    const sourceUrl = tubeUrl.trim().startsWith("@")
+      ? `https://www.youtube.com/${encodeURI(tubeUrl.trim())}/videos`
+      : tubeUrl.trim();
+    if (!sourceUrl) {
+      setTubeError("請輸入 YouTube @handle 或頻道網址");
+      return;
+    }
+    setTubeChannels((items) => [...items.filter((item) => item.sourceUrl !== sourceUrl), { alias: tubeAlias.trim(), sourceUrl }]);
+    setTubeAlias("");
+    setTubeUrl("");
+    setTubeResult(null);
+    setTubeLoadedOnce(false);
+  };
 
   return (
     <section class="tools-workbench">
-      <div class="tool-tabs" role="tablist" aria-label="鋒兄工具子項目">
+      <div class="tool-tabs" role="tablist" aria-label="鋒兄工具">
         {toolTabs.map((tab) => (
           <button
             type="button"
@@ -632,7 +781,7 @@ function ToolWorkbench({
               <span class="tool-mark"><Icon name="tool" /></span>
               <div>
                 <h3>鋒兄比價</h3>
-                <p>貼上商品網址，取得目前價格與歷史最低價圖表。</p>
+                <p>即時讀取商品來源頁或商店 API，結果不寫死在前端。</p>
               </div>
             </div>
             <div class="price-query">
@@ -640,31 +789,23 @@ function ToolWorkbench({
                 <span>商品網址</span>
                 <input value={productUrl} onInput={(event) => setProductUrl(event.currentTarget.value)} />
               </label>
-              <button
-                type="button"
-                onClick={() => {
-                  const nextUrl = productUrl.trim() || recentPriceLinks[0].url;
-                  setProductUrl(nextUrl);
-                  setPriceCheckedUrl(nextUrl);
-                  setPriceCheckedAt(nowText());
-                }}
-              >
-                查詢歷史價格
+              <button type="button" onClick={() => void runPriceCompare()} disabled={priceLoading}>
+                {priceLoading ? "查詢中..." : "查詢即時價格"}
               </button>
             </div>
             <div class="source-grid">
-              <div><strong>BigGo API</strong><span>查詢 BigGo 歷史價格資料</span></div>
-              <div><strong>本地估值</strong><span>保留本地測試流程，不連外查價</span></div>
+              <div><strong>即時來源</strong><span>PChome/momo/商品頁 metadata</span></div>
+              <div><strong>更新時間</strong><span>{priceResult ? formatDateTime(priceResult.resolvedAt) : "尚未載入"}</span></div>
             </div>
           </section>
 
           <section class="tool-card">
             <div class="section-title">
-              <h4>最近連結</h4>
-              <span>{recentPriceLinks.length} 筆</span>
+              <h4>快速連結</h4>
+              <span>{quickPriceLinks.length} 筆</span>
             </div>
             <div class="recent-links">
-              {recentPriceLinks.map((link) => (
+              {quickPriceLinks.map((link) => (
                 <button type="button" onClick={() => setProductUrl(link.url)}>
                   <strong>{link.title}</strong>
                   <span>{link.url}</span>
@@ -676,21 +817,31 @@ function ToolWorkbench({
           <section class="tool-card price-result">
             <div class="section-title">
               <h4>比價結果</h4>
-              <a href={priceCheckedUrl} target="_blank" rel="noreferrer">開啟商品</a>
+              {priceResult?.url ? <a href={priceResult.url} target="_blank" rel="noreferrer">開啟商品</a> : null}
             </div>
-            <p class="tool-status">商品代碼：{priceProductId}　最後查詢：{priceCheckedAt}</p>
-            <div class="result-summary">
-              <div><span>目前價格</span><strong>12,199 TWD</strong></div>
-              <div><span>歷史最低價</span><strong>12,199 TWD</strong></div>
-              <div><span>歷史最高價</span><strong>12,999 TWD</strong></div>
-            </div>
-            <div class="mini-line" aria-label="歷史價格走勢">
-              {priceHistory.map((item) => {
-                const left = priceHistory.length === 1 ? 50 : (priceHistory.indexOf(item) / (priceHistory.length - 1)) * 100;
-                const top = maxPrice === minPrice ? 50 : 80 - ((item.price - minPrice) / (maxPrice - minPrice)) * 54;
-                return <span style={{ left: `${left}%`, top: `${top}%` }} title={`${item.date} ${item.price}`} />;
-              })}
-            </div>
+            {priceError ? <p class="tool-error">{priceError}</p> : null}
+            {!priceResult && priceLoading ? <p class="tool-status">正在讀取即時價格...</p> : null}
+            {priceResult ? (
+              <>
+                <p class="tool-status">{priceResult.title}｜{priceResult.source}｜{formatDateTime(priceResult.resolvedAt)}</p>
+                {priceResult.notice ? <p class="tool-warning">{priceResult.notice}</p> : null}
+                <div class="result-summary">
+                  <div><span>目前價格</span><strong>{formatMoney(priceSummary?.current ?? priceResult.currentPrice, priceResult.currency)}</strong></div>
+                  <div><span>最高</span><strong>{formatMoney(priceSummary?.high, priceResult.currency)}</strong></div>
+                  <div><span>最低</span><strong>{formatMoney(priceSummary?.low, priceResult.currency)}</strong></div>
+                </div>
+                <div class="mini-line" aria-label="價格歷史">
+                  {(priceResult.history || []).map((item, index) => {
+                    const prices = priceResult.history.map((entry) => entry.price).filter((entry): entry is number => typeof entry === "number");
+                    const min = prices.length ? Math.min(...prices) : 0;
+                    const max = prices.length ? Math.max(...prices) : 0;
+                    const left = priceResult.history.length === 1 ? 50 : (index / (priceResult.history.length - 1)) * 100;
+                    const top = max === min || item.price == null ? 50 : 80 - ((item.price - min) / (max - min)) * 54;
+                    return <span style={{ left: `${left}%`, top: `${top}%` }} title={`${item.date} ${item.price ?? "-"}`} />;
+                  })}
+                </div>
+              </>
+            ) : null}
           </section>
         </div>
       )}
@@ -702,93 +853,61 @@ function ToolWorkbench({
               <span class="tool-mark blue"><Icon name="phone" /></span>
               <div>
                 <h3>手機比價</h3>
-                <p>根據地標網通與通路估價，可搜尋 iPhone、Samsung 等機型。</p>
+                <p>即時彙整地標網通與傑昇通信搜尋結果。</p>
               </div>
             </div>
             <div class="phone-search-grid">
-              {[
-                ["apple", "蘋果手機區塊", appleQuery, setAppleQuery],
-                ["samsung", "三星手機區塊", samsungQuery, setSamsungQuery],
-              ].map(([id, title, value, setter]) => (
-                <div class="phone-search-card">
-                  <div class="card-row">
-                    <strong>{title as string}</strong>
-                    <button type="button" onClick={() => setCollapsed((current) => ({ ...current, [id as string]: !current[id as string] }))}>
-                      {collapsed[id as string] ? "展開" : "收合"}
-                    </button>
-                  </div>
-                  {!collapsed[id as string] && (
-                    <>
-                      <p>預設查詢：{value as string}，每月初重新整理。</p>
-                      <div class="inline-form">
-                        <input value={value as string} onInput={(event) => (setter as (value: string) => void)(event.currentTarget.value)} />
-                        <button type="button" onClick={() => setPhoneStatus(`${value as string} 搜尋完成：${nowText()}`)}>搜尋</button>
-                        <button type="button" class="soft" onClick={() => setPhoneStatus(`${title as string} 已重新抓取：${nowText()}`)}>重新抓取</button>
-                      </div>
-                    </>
-                  )}
+              <div class="phone-search-card">
+                <div class="card-row">
+                  <strong>搜尋手機</strong>
+                  <button type="button" onClick={() => void loadMobile()} disabled={mobileLoading}>
+                    {mobileLoading ? "搜尋中..." : "搜尋"}
+                  </button>
                 </div>
-              ))}
+                <div class="inline-form">
+                  <input value={phoneQuery} onInput={(event) => setPhoneQuery(event.currentTarget.value)} />
+                  <button type="button" onClick={() => void loadMobile("iPhone 17")}>iPhone 17</button>
+                  <button type="button" class="soft" onClick={() => void loadMobile("Samsung")}>Samsung</button>
+                </div>
+              </div>
             </div>
           </section>
 
           <section class="tool-card phone-chart">
             <div class="section-title">
               <div>
-                <small>LANDTOP CHART</small>
-                <h4>地標網通 vs 通路均價</h4>
-                <p>{phoneStatus}，顯示 {visiblePhoneRows.length} 筆機型。</p>
+                <small>LIVE PHONE COMPARE</small>
+                <h4>即時手機比價</h4>
+                <p>{mobileResult ? `${mobileResult.source}｜${formatDateTime(mobileResult.fetchedAt)}｜${mobileResult.total} 筆` : "尚未載入資料"}</p>
               </div>
               <Icon name="chart" />
             </div>
-            {visiblePhoneRows.map((row) => (
+            {mobileError ? <p class="tool-error">{mobileError}</p> : null}
+            {mobileResult?.warnings?.map((warning) => <p class="tool-warning">{warning}</p>)}
+            {(mobileResult?.products || []).slice(0, 8).map((row) => (
               <div class="bar-row">
-                <div><strong>{row.name}</strong><span>{row.storage}</span></div>
+                <div><strong>{row.name}</strong><span>{row.brand}</span></div>
                 <div class="bars">
-                  <span class="base" style={{ width: `${Math.round((row.base / 8000) * 100)}%` }} />
-                  <span class="current" style={{ width: `${Math.round((row.current / 8000) * 100)}%` }} />
+                  <span class="base" style={{ width: `${Math.min(100, Math.round(((row.suggestedPrice || row.bestPrice || 1) / 50000) * 100))}%` }} />
+                  <span class="current" style={{ width: `${Math.min(100, Math.round(((row.bestPrice || row.landtopPrice || row.jyesPrice || 1) / 50000) * 100))}%` }} />
                 </div>
-                <strong>NT$ {row.current.toLocaleString("zh-TW")}</strong>
+                <strong>{formatMoney(row.bestPrice ?? row.landtopPrice ?? row.jyesPrice, "TWD")}</strong>
               </div>
             ))}
           </section>
 
           <section class="tool-card product-grid">
-            {visiblePhoneRows.map((row) => (
+            {(mobileResult?.products || []).slice(0, 12).map((row) => (
               <article>
-                <small>{row.brand}</small>
-                <h4>{row.name} {row.storage}</h4>
+                <small>{row.bestSourceLabel || row.brand}</small>
+                <h4>{row.name}</h4>
                 <div class="price-pills">
-                  <span>建議售價 NT$ {row.base.toLocaleString("zh-TW")}</span>
-                  <span>地標網通 NT$ {row.current.toLocaleString("zh-TW")}</span>
-                  <span>差價 {row.change.toLocaleString("zh-TW")}</span>
+                  <span>建議 {formatMoney(row.suggestedPrice, "TWD")}</span>
+                  <span>地標 {row.landtopPriceLabel || "-"}</span>
+                  <span>傑昇 {row.jyesPriceLabel || "-"}</span>
                 </div>
               </article>
             ))}
-          </section>
-
-          <section class="tool-card weekly-history">
-            <div class="section-title">
-              <div>
-                <small>WEEKLY HISTORY</small>
-                <h4>地標網通歷史價格</h4>
-                <p>每 7 天記錄一次，目前用本地樣本模擬 Appwrite 版的週史圖。</p>
-              </div>
-              <div class="history-summary">
-                <span>歷史最低<br /><strong>NT$ 4,990</strong></span>
-                <span>歷史最高<br /><strong>NT$ 7,490</strong></span>
-              </div>
-            </div>
-            <div class="history-legend">
-              {visiblePhoneRows.slice(0, 2).map((row, index) => (
-                <span class={index === 0 ? "blue" : "orange"}>{row.name} {row.storage}</span>
-              ))}
-            </div>
-            <div class="history-chart" aria-label="手機週史價格">
-              {phoneHistoryPoints.map((point, index) => (
-                <i style={{ left: `${14 + index * 11}%`, top: `${56 - (index % 2) * 4}%` }} title={point} />
-              ))}
-            </div>
           </section>
         </div>
       )}
@@ -801,50 +920,66 @@ function ToolWorkbench({
               <div>
                 <small>FENGBRO TUBE</small>
                 <h3>鋒兄Tube</h3>
-                <p>追蹤指定 YouTube 頻道最新影片，每個頻道顯示 10 部，目前追蹤 {channelCount} 個頻道。</p>
+                <p>從 YouTube 頻道頁與 RSS feed 即時讀取更新。</p>
               </div>
             </div>
             <div class="tube-actions">
-              <span>更新：{tubeUpdatedAt}</span>
-              <button type="button" onClick={() => setChannelCount((count) => count + 1)}>頻道管理</button>
-              <button type="button" class="danger-fill" onClick={() => setTubeUpdatedAt(nowText())}>重新整理</button>
+              <span>更新：{tubeResult ? formatDateTime(tubeResult.fetchedAt) : "尚未載入"}</span>
+              <button type="button" onClick={() => void loadTube()} disabled={tubeLoading}>{tubeLoading ? "讀取中..." : "重新整理"}</button>
             </div>
           </section>
 
           <section class="tool-card">
-            <div class="section-title">
-              <h4>3 天內新影片：{filteredTubeVideos.length} 部</h4>
-              <select value={tubeFilter} onChange={(event) => setTubeFilter(event.currentTarget.value)}>
-                {channels.map((channel) => <option value={channel}>{channel}</option>)}
-              </select>
+            <div class="tube-manager">
+              <input value={tubeAlias} onInput={(event) => setTubeAlias(event.currentTarget.value)} placeholder="頻道別名" />
+              <input value={tubeUrl} onInput={(event) => setTubeUrl(event.currentTarget.value)} placeholder="@handle 或 YouTube 頻道網址" />
+              <button type="button" onClick={addTubeChannel}>加入頻道</button>
             </div>
+            {tubeError ? <p class="tool-error">{tubeError}</p> : null}
             <div class="tube-list">
-              {filteredTubeVideos.map((video) => (
+              {tubeChannels.map((channel) => (
                 <article>
-                  <strong>{video.title}</strong>
-                  <span>{video.channel} / {video.time}</span>
+                  <strong>{channel.alias || channel.sourceUrl}</strong>
+                  <span>{channel.sourceUrl}</span>
                 </article>
               ))}
             </div>
           </section>
 
-          {tubeChannelCards.map((channel) => (
+          {tubeResult?.recentVideos?.length ? (
+            <section class="tool-card tube-channel-section">
+              <div class="section-title">
+                <h4>三天內新片：{tubeResult.recentVideos.length} 部</h4>
+                <span>{tubeResult.sourceCount} 個頻道</span>
+              </div>
+              <div class="tube-channel-grid">
+                {tubeResult.recentVideos.slice(0, 12).map((video) => (
+                  <a href={video.url} target="_blank" rel="noreferrer">
+                    {video.thumbnail ? <img src={video.thumbnail} alt="" loading="lazy" /> : null}
+                    <div>
+                      <strong>{video.title}</strong>
+                      <span>{video.channelTitle} / {formatDateTime(video.publishedAt)}</span>
+                    </div>
+                  </a>
+                ))}
+              </div>
+            </section>
+          ) : null}
+
+          {tubeResult?.channels?.map((channel) => (
             <section class="tool-card tube-channel-section">
               <div class="section-title">
                 <div>
-                  <h4>{channel.channel}</h4>
-                  <a href="https://www.youtube.com/" target="_blank" rel="noreferrer">開啟頻道</a>
+                  <h4>{channel.title}</h4>
+                  <a href={channel.sourceUrl} target="_blank" rel="noreferrer">開啟頻道</a>
                 </div>
-                <span>{channel.count} 部影片</span>
+                <span>{channel.error || `${channel.videos.length} 部影片`}</span>
               </div>
-              <div class="tube-channel-grid">
-                {channel.videos.map((video) => (
+              <div class="tube-list">
+                {channel.videos.slice(0, 6).map((video) => (
                   <article>
-                    <img src={video.thumb} alt="" loading="lazy" />
-                    <div>
-                      <strong>{video.title}</strong>
-                      <span>{channel.channel} / {video.date}</span>
-                    </div>
+                    <strong>{video.title}</strong>
+                    <span>{formatDateTime(video.publishedAt)}</span>
                   </article>
                 ))}
               </div>
@@ -861,34 +996,62 @@ function ToolWorkbench({
               <div>
                 <small>GLOBAL MARKET</small>
                 <h3>鋒兄金融</h3>
-                <p>集中追蹤指數、匯率、加密貨幣、商品與估值指標。</p>
+                <p>即時讀取 CNBC、Yahoo Finance、Multpl 行情。</p>
               </div>
             </div>
             <div class="finance-kpi">
-              <span>資料源 16 個</span>
-              <span>更新間隔 2 分鐘</span>
-              <button type="button" onClick={() => setFinanceUpdatedAt(nowText())}>更新行情</button>
+              <span>資料源：{financeResult?.source || "尚未載入"}</span>
+              <span>更新：{financeResult ? formatDateTime(financeResult.fetchedAt) : "-"}</span>
+              <button type="button" onClick={() => void loadFinance()} disabled={financeLoading}>{financeLoading ? "更新中..." : "更新行情"}</button>
             </div>
           </section>
 
-          {financeGroups.map((group) => (
+          {financeError ? <p class="tool-error">{financeError}</p> : null}
+          {financeResult?.financeAlerts?.map((alert) => (
+            <a class="tool-warning" href={alert.sourceUrl} target="_blank" rel="noreferrer">{alert.message}</a>
+          ))}
+
+          {headlineQuotes.length ? (
             <section class="tool-card finance-section">
               <div class="section-title">
-                <h4>{group.title}</h4>
-                <span>{group.items.length} 筆，更新：{financeUpdatedAt}</span>
+                <h4>重點行情</h4>
+                <span>{headlineQuotes.length} 筆</span>
               </div>
               <div class="finance-grid">
-                {group.items.map((item) => (
-                  <article>
+                {headlineQuotes.map((quote) => (
+                  <a href={quote.sourceUrl} target="_blank" rel="noreferrer">
                     <div class="card-row">
-                      <strong>{item.name}</strong>
-                      <span class={item.trend === "up" ? "trend up" : "trend down"}>{item.change}</span>
+                      <strong>{quote.name}</strong>
+                      <span class={(quote.changePercent || 0) >= 0 ? "trend up" : "trend down"}>{quote.changePercent == null ? "-" : `${quote.changePercent.toFixed(2)}%`}</span>
                     </div>
-                    <b>{item.value}</b>
+                    <b>{formatNumber(quote.price, quote.group === "fx" ? 3 : 2)} {quote.currency}</b>
                     <div class="spark">
-                      <span style={{ width: item.trend === "up" ? "74%" : "46%" }} />
+                      <span style={{ width: `${Math.min(92, Math.max(22, 58 + (quote.changePercent || 0) * 4))}%` }} />
                     </div>
-                  </article>
+                  </a>
+                ))}
+              </div>
+            </section>
+          ) : null}
+
+          {Object.entries(financeGroups).map(([group, quotes]) => (
+            <section class="tool-card finance-section">
+              <div class="section-title">
+                <h4>{group.toUpperCase()}</h4>
+                <span>{quotes.length} 筆</span>
+              </div>
+              <div class="finance-grid">
+                {quotes.map((quote) => (
+                  <a href={quote.sourceUrl} target="_blank" rel="noreferrer">
+                    <div class="card-row">
+                      <strong>{quote.name}</strong>
+                      <span class={(quote.changePercent || 0) >= 0 ? "trend up" : "trend down"}>{quote.error || (quote.changePercent == null ? "-" : `${quote.changePercent.toFixed(2)}%`)}</span>
+                    </div>
+                    <b>{formatNumber(quote.price, group === "fx" ? 3 : 2)} {quote.currency}</b>
+                    <div class="spark">
+                      <span style={{ width: `${Math.min(92, Math.max(22, 58 + (quote.changePercent || 0) * 4))}%` }} />
+                    </div>
+                  </a>
                 ))}
               </div>
             </section>
@@ -1561,3 +1724,4 @@ export default function FengbroCrudApp() {
     </div>
   );
 }
+
