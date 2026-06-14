@@ -43,7 +43,7 @@ button {
 
 .app-shell {
   display: grid;
-  grid-template-columns: 136px minmax(0, 1fr);
+  grid-template-columns: 200px minmax(0, 1fr);
   min-height: 100vh;
 }
 
@@ -54,7 +54,7 @@ button {
   overflow-y: auto;
   border-right: 1px solid var(--line);
   background: rgba(255, 253, 248, 0.72);
-  padding: 14px 10px;
+  padding: 14px 12px;
   scrollbar-width: thin;
 }
 
@@ -94,9 +94,9 @@ button {
 }
 
 .brand h1 {
-  font-size: 13px;
+  font-size: 14px;
   line-height: 1.2;
-  max-width: 74px;
+  max-width: 120px;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -146,19 +146,19 @@ button {
 
 .nav-item {
   display: grid;
-  grid-template-columns: 24px minmax(0, 1fr) auto;
+  grid-template-columns: 22px minmax(0, 1fr) auto;
   align-items: center;
-  gap: 7px;
+  gap: 8px;
   width: 100%;
-  min-height: 34px;
+  min-height: 36px;
   border: 0;
   border-radius: 14px;
   background: transparent;
   color: #625a50;
-  padding: 6px 8px;
+  padding: 7px 10px;
   text-align: left;
-  font-size: 11px;
-  line-height: 1.15;
+  font-size: 12px;
+  line-height: 1.2;
   transition: background 140ms ease, color 140ms ease;
 }
 
@@ -251,7 +251,7 @@ svg {
 
 .workspace {
   min-width: 0;
-  padding: 16px 24px 48px 18px;
+  padding: 16px 24px 48px 20px;
 }
 
 .surface-bar {
@@ -423,7 +423,7 @@ svg {
 
 .content-grid {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(320px, 480px);
+  grid-template-columns: minmax(0, 1fr) minmax(260px, 420px);
   align-items: start;
   gap: 16px;
 }
@@ -691,10 +691,7 @@ video.media-preview {
 }
 
 .workspace.module-documents {
-  width: calc(100% - 36px);
-  max-width: 2200px;
-  margin-left: 18px;
-  margin-right: 18px;
+  /* no fixed width - let grid fill */
 }
 
 .module-documents .content-grid {
@@ -748,10 +745,7 @@ video.media-preview {
 
 .workspace.module-music,
 .workspace.module-podcast {
-  width: calc(100% - 36px);
-  max-width: 1520px;
-  margin-left: 18px;
-  margin-right: 18px;
+  /* no fixed width - let grid fill */
 }
 
 .module-music .content-grid,
@@ -957,14 +951,19 @@ video.media-preview {
   white-space: nowrap;
 }
 
-@media (max-width: 1180px) {
+/* Stack content-grid at medium viewports or high zoom */
+@media (max-width: 1060px) {
   .app-shell {
-    grid-template-columns: 136px minmax(0, 1fr);
+    grid-template-columns: 164px minmax(0, 1fr);
   }
 
-  .workspace {
-    width: min(860px, calc(100vw - 176px));
-    margin-left: 18px;
+  .sidebar {
+    padding: 12px 8px;
+  }
+
+  .nav-item {
+    font-size: 11px;
+    padding: 6px 8px;
   }
 
   .content-grid {
@@ -986,6 +985,26 @@ video.media-preview {
   }
 }
 
+/* Narrow viewport (e.g. 900px CSS, covers 1366px@150% zoom) */
+@media (max-width: 900px) {
+  .app-shell {
+    grid-template-columns: 148px minmax(0, 1fr);
+  }
+
+  .metric-row {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .topbar {
+    flex-wrap: wrap;
+  }
+
+  .top-actions {
+    width: 100%;
+    justify-content: flex-start;
+  }
+}
+
 @media (max-width: 760px) {
   .app-shell {
     display: block;
@@ -1003,9 +1022,7 @@ video.media-preview {
   }
 
   .workspace {
-    width: auto;
-    margin: 0;
-    padding: 14px;
+    padding: 12px;
   }
 
   .surface-bar,
