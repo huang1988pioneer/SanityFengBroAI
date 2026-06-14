@@ -40,6 +40,10 @@ const defaultSettings: SanitySettings = {
 };
 
 const commonMediaFields: Field[] = [
+  { key: "assetId", label: "Sanity Asset ID" },
+  { key: "filename", label: "檔名" },
+  { key: "mimeType", label: "MIME 類型" },
+  { key: "size", label: "大小 bytes", type: "number" },
   { key: "title", label: "標題" },
   { key: "url", label: "連結", type: "url" },
   { key: "category", label: "分類" },
@@ -480,6 +484,8 @@ const recentPriceLinks = [
 ];
 
 const phoneRows = [
+  { brand: "Apple", name: "iPhone 17", storage: "128GB", base: 29900, current: 27400, change: -2500 },
+  { brand: "Apple", name: "iPhone 17 Pro", storage: "256GB", base: 39900, current: 38200, change: -1700 },
   { brand: "Samsung", name: "Samsung A17", storage: "6G 128GB", base: 7490, current: 4990, change: -2500 },
   { brand: "Samsung", name: "Samsung A17", storage: "4G 64GB", base: 6990, current: 4990, change: -2000 },
 ];
@@ -525,17 +531,32 @@ const financeGroups = [
 function ToolWorkbench() {
   const [activeTool, setActiveTool] = useState<ToolTabId>("price");
   const [productUrl, setProductUrl] = useState(recentPriceLinks[0].url);
+  const [priceCheckedUrl, setPriceCheckedUrl] = useState(recentPriceLinks[0].url);
+  const [priceCheckedAt, setPriceCheckedAt] = useState("尚未查詢");
   const [appleQuery, setAppleQuery] = useState("iPhone 17");
   const [samsungQuery, setSamsungQuery] = useState("Samsung 26");
+  const [phoneStatus, setPhoneStatus] = useState("等待搜尋");
   const [collapsed, setCollapsed] = useState<Record<string, boolean>>({});
   const [tubeFilter, setTubeFilter] = useState("全部頻道");
+  const [tubeUpdatedAt, setTubeUpdatedAt] = useState("2026/6/14 上午11:37:19");
+  const [channelCount, setChannelCount] = useState(24);
+  const [financeUpdatedAt, setFinanceUpdatedAt] = useState("2026/6/14 上午11:40:00");
   const minPrice = Math.min(...priceHistory.map((item) => item.price));
   const maxPrice = Math.max(...priceHistory.map((item) => item.price));
+  const priceProductId = priceCheckedUrl.split("/").filter(Boolean).at(-1) || "UNKNOWN";
+  const nowText = () => new Date().toLocaleString("zh-TW", { hour12: false });
 
   const filteredTubeVideos = tubeFilter === "全部頻道"
     ? tubeVideos
     : tubeVideos.filter((video) => video.channel === tubeFilter);
   const channels = ["全部頻道", ...Array.from(new Set(tubeVideos.map((video) => video.channel)))];
+  const phoneSearchText = `${appleQuery} ${samsungQuery}`.toLowerCase();
+  const filteredPhoneRows = phoneRows.filter((row) =>
+    `${row.brand} ${row.name} ${row.storage}`.toLowerCase().includes(phoneSearchText.trim()) ||
+    row.name.toLowerCase().includes(appleQuery.trim().toLowerCase()) ||
+    row.name.toLowerCase().includes(samsungQuery.trim().toLowerCase())
+  );
+  const visiblePhoneRows = filteredPhoneRows.length > 0 ? filteredPhoneRows : phoneRows;
 
   return (
     <section class="tools-workbench">
@@ -569,7 +590,15 @@ function ToolWorkbench() {
                 <span>商品網址</span>
                 <input value={productUrl} onInput={(event) => setProductUrl(event.currentTarget.value)} />
               </label>
-              <button type="button" onClick={() => setProductUrl(productUrl.trim() || recentPriceLinks[0].url)}>
+              <button
+                type="button"
+                onClick={() => {
+                  const nextUrl = productUrl.trim() || recentPriceLinks[0].url;
+                  setProductUrl(nextUrl);
+                  setPriceCheckedUrl(nextUrl);
+                  setPriceCheckedAt(nowText());
+                }}
+              >
                 查詢歷史價格
               </button>
             </div>
@@ -597,8 +626,9 @@ function ToolWorkbench() {
           <section class="tool-card price-result">
             <div class="section-title">
               <h4>比價結果</h4>
-              <a href={productUrl} target="_blank" rel="noreferrer">開啟商品</a>
+              <a href={priceCheckedUrl} target="_blank" rel="noreferrer">開啟商品</a>
             </div>
+            <p class="tool-status">商品代碼：{priceProductId}　最後查詢：{priceCheckedAt}</p>
             <div class="result-summary">
               <div><span>目前價格</span><strong>12,199 TWD</strong></div>
               <div><span>歷史最低價</span><strong>12,199 TWD</strong></div>
@@ -642,8 +672,8 @@ function ToolWorkbench() {
                       <p>預設查詢：{value as string}，每月初重新整理。</p>
                       <div class="inline-form">
                         <input value={value as string} onInput={(event) => (setter as (value: string) => void)(event.currentTarget.value)} />
-                        <button type="button">搜尋中</button>
-                        <button type="button" class="soft">重新抓取</button>
+                        <button type="button" onClick={() => setPhoneStatus(`${value as string} 搜尋完成：${nowText()}`)}>搜尋</button>
+                        <button type="button" class="soft" onClick={() => setPhoneStatus(`${title as string} 已重新抓取：${nowText()}`)}>重新抓取</button>
                       </div>
                     </>
                   )}
@@ -657,10 +687,11 @@ function ToolWorkbench() {
               <div>
                 <small>LANDTOP CHART</small>
                 <h4>地標網通 vs 通路均價</h4>
+                <p>{phoneStatus}，顯示 {visiblePhoneRows.length} 筆機型。</p>
               </div>
               <Icon name="chart" />
             </div>
-            {phoneRows.map((row) => (
+            {visiblePhoneRows.map((row) => (
               <div class="bar-row">
                 <div><strong>{row.name}</strong><span>{row.storage}</span></div>
                 <div class="bars">
@@ -673,7 +704,7 @@ function ToolWorkbench() {
           </section>
 
           <section class="tool-card product-grid">
-            {phoneRows.map((row) => (
+            {visiblePhoneRows.map((row) => (
               <article>
                 <small>{row.brand}</small>
                 <h4>{row.name} {row.storage}</h4>
@@ -696,13 +727,13 @@ function ToolWorkbench() {
               <div>
                 <small>FENGBRO TUBE</small>
                 <h3>鋒兄Tube</h3>
-                <p>追蹤指定 YouTube 頻道最新影片，每個頻道顯示 10 部，目前追蹤 24 個頻道。</p>
+                <p>追蹤指定 YouTube 頻道最新影片，每個頻道顯示 10 部，目前追蹤 {channelCount} 個頻道。</p>
               </div>
             </div>
             <div class="tube-actions">
-              <span>更新：2026/6/14 上午11:37:19</span>
-              <button type="button">頻道管理</button>
-              <button type="button" class="danger-fill">重新整理</button>
+              <span>更新：{tubeUpdatedAt}</span>
+              <button type="button" onClick={() => setChannelCount((count) => count + 1)}>頻道管理</button>
+              <button type="button" class="danger-fill" onClick={() => setTubeUpdatedAt(nowText())}>重新整理</button>
             </div>
           </section>
 
@@ -739,6 +770,7 @@ function ToolWorkbench() {
             <div class="finance-kpi">
               <span>資料源 16 個</span>
               <span>更新間隔 2 分鐘</span>
+              <button type="button" onClick={() => setFinanceUpdatedAt(nowText())}>更新行情</button>
             </div>
           </section>
 
@@ -746,7 +778,7 @@ function ToolWorkbench() {
             <section class="tool-card finance-section">
               <div class="section-title">
                 <h4>{group.title}</h4>
-                <span>{group.items.length} 筆</span>
+                <span>{group.items.length} 筆，更新：{financeUpdatedAt}</span>
               </div>
               <div class="finance-grid">
                 {group.items.map((item) => (
@@ -1019,6 +1051,10 @@ export default function FengbroCrudApp() {
       const data = await response.json();
       if (!response.ok) throw new Error(data.error || "Sanity 上傳失敗");
       updateDraft("url", data.url || "");
+      updateDraft("assetId", data.asset?._id || "");
+      updateDraft("filename", data.asset?.originalFilename || file.name);
+      updateDraft("mimeType", data.asset?.mimeType || file.type);
+      updateDraft("size", Number(data.asset?.size || file.size || 0));
       setMessage(`已上傳 ${file.name} 到 Sanity Assets`);
     } catch (error) {
       setMessage(error instanceof Error ? error.message : "Sanity 上傳失敗");
