@@ -1,4 +1,5 @@
 _fresh/
+.fresh-dev.*.log
 .env
 .playwright-mcp/
 .reference-fengbroaiappwrite/

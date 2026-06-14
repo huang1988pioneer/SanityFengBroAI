@@ -30,6 +30,7 @@ type SanitySettings = {
 
 const todayStamp = () => new Date().toISOString().slice(0, 10).replaceAll("-", "");
 const settingsKey = "fengbro.sanity.settings.v1";
+const previewModuleIds = new Set(["images", "videos", "music", "documents", "podcast"]);
 
 const defaultSettings: SanitySettings = {
   projectId: "",
@@ -230,6 +231,13 @@ const modules: Module[] = [
 ];
 
 const moduleById = Object.fromEntries(modules.map((module) => [module.id, module]));
+const mediaUploadModules: Record<string, { accept: string; label: string }> = {
+  images: { accept: "image/*", label: "上傳圖片" },
+  videos: { accept: "video/*", label: "上傳影片" },
+  music: { accept: "audio/*", label: "上傳音樂" },
+  documents: { accept: "*/*", label: "上傳文件" },
+  podcast: { accept: "audio/*", label: "上傳播客" },
+};
 
 function createEmptyRow(module: Module): Row {
   return Object.fromEntries(module.fields.map((field) => {
@@ -342,6 +350,86 @@ function stripSystemFields(row: Row): Row {
   return clean;
 }
 
+function getUrlExtension(url: string) {
+  try {
+    return new URL(url, globalThis.location?.origin || "http://localhost").pathname.split(".").pop()?.toLowerCase() || "";
+  } catch {
+    return url.split("?")[0].split("#")[0].split(".").pop()?.toLowerCase() || "";
+  }
+}
+
+function getYouTubeEmbedUrl(url: string) {
+  try {
+    const parsed = new URL(url);
+    const host = parsed.hostname.replace(/^www\./, "");
+    const videoId = host === "youtu.be"
+      ? parsed.pathname.split("/").filter(Boolean)[0]
+      : host.endsWith("youtube.com")
+      ? parsed.searchParams.get("v") || parsed.pathname.match(/\/(?:embed|shorts|live)\/([^/?#]+)/)?.[1]
+      : "";
+    return videoId ? `https://www.youtube.com/embed/${videoId}` : "";
+  } catch {
+    return "";
+  }
+}
+
+function MediaPreview({ moduleId, url, compact = false }: { moduleId: string; url: string; compact?: boolean }) {
+  const source = url.trim();
+  if (!source || !previewModuleIds.has(moduleId)) return null;
+
+  const ext = getUrlExtension(source);
+  const isAudio = ["mp3", "wav", "ogg", "m4a", "aac", "flac"].includes(ext);
+  const isVideo = ["mp4", "webm", "ogv", "mov", "m4v"].includes(ext);
+  const isPdf = ext === "pdf";
+  const youtubeEmbed = getYouTubeEmbedUrl(source);
+
+  if (moduleId === "images") {
+    return (
+      <a class={compact ? "media-preview compact" : "media-preview"} href={source} target="_blank" rel="noreferrer">
+        <img src={source} alt="" loading="lazy" />
+      </a>
+    );
+  }
+
+  if (moduleId === "videos") {
+    if (youtubeEmbed) {
+      return (
+        <div class={compact ? "media-preview video compact" : "media-preview video"}>
+          <iframe src={youtubeEmbed} title="影片預覽" loading="lazy" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" allowFullScreen />
+        </div>
+      );
+    }
+    if (isVideo) {
+      return <video class={compact ? "media-preview compact" : "media-preview"} src={source} controls preload="metadata" />;
+    }
+  }
+
+  if (moduleId === "music" || moduleId === "podcast" || isAudio) {
+    return <audio class={compact ? "media-audio compact" : "media-audio"} src={source} controls preload="metadata" />;
+  }
+
+  if (moduleId === "documents") {
+    if (isPdf) {
+      return (
+        <div class={compact ? "media-preview document compact" : "media-preview document"}>
+          <iframe src={source} title="文件預覽" loading="lazy" />
+        </div>
+      );
+    }
+    return (
+      <a class="document-link" href={source} target="_blank" rel="noreferrer">
+        開啟文件預覽
+      </a>
+    );
+  }
+
+  return (
+    <a class="document-link" href={source} target="_blank" rel="noreferrer">
+      開啟媒體
+    </a>
+  );
+}
+
 function Icon({ name }: { name: string }) {
   const paths: Record<string, string> = {
     calendar: "M7 2v3M17 2v3M3 9h18M5 5h14v16H5z",
@@ -356,6 +444,9 @@ function Icon({ name }: { name: string }) {
     bank: "M3 9l9-6 9 6zM5 10h14M6 10v8M10 10v8M14 10v8M18 10v8M4 20h16",
     repeat: "M17 1l4 4-4 4M3 11V9a4 4 0 0 1 4-4h14M7 23l-4-4 4-4M21 13v2a4 4 0 0 1-4 4H3",
     tool: "M14 7l3 3 5-5a6 6 0 0 1-8 8l-8 8-3-3 8-8a6 6 0 0 1 8-8z",
+    phone: "M8 2h8a2 2 0 0 1 2 2v16a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2zM11 18h2",
+    play: "M8 5v14l11-7z",
+    chart: "M4 19V5M4 19h16M8 16l3-5 4 3 5-8",
     settings: "M12 8a4 4 0 1 0 0 8 4 4 0 0 0 0-8zM4 12H2M22 12h-2M12 4V2M12 22v-2M5 5l-1.5-1.5M20.5 20.5L19 19M19 5l1.5-1.5M3.5 20.5L5 19",
     info: "M12 22a10 10 0 1 0 0-20 10 10 0 0 0 0 20zM12 10v7M12 7h.01",
   };
@@ -363,6 +454,319 @@ function Icon({ name }: { name: string }) {
     <svg viewBox="0 0 24 24" aria-hidden="true">
       <path d={paths[name] ?? paths.note} />
     </svg>
+  );
+}
+
+const toolTabs = [
+  { id: "price", label: "鋒兄比價", icon: "tool" },
+  { id: "phone", label: "手機比價", icon: "phone" },
+  { id: "tube", label: "鋒兄Tube", icon: "play" },
+  { id: "finance", label: "鋒兄金融", icon: "chart" },
+] as const;
+
+type ToolTabId = typeof toolTabs[number]["id"];
+
+const priceHistory = [
+  { date: "06/10", price: 12999 },
+  { date: "06/11", price: 12999 },
+  { date: "06/12", price: 12999 },
+  { date: "06/13", price: 12999 },
+  { date: "06/14", price: 12199 },
+];
+
+const recentPriceLinks = [
+  { title: "PChome 商品 DRAHCO-A900J8363", url: "https://24h.pchome.com.tw/prod/DRAHCO-A900J8363" },
+  { title: "PChome 商品 DYALS1-A900JUGXV", url: "https://24h.pchome.com.tw/prod/DYALS1-A900JUGXV" },
+];
+
+const phoneRows = [
+  { brand: "Samsung", name: "Samsung A17", storage: "6G 128GB", base: 7490, current: 4990, change: -2500 },
+  { brand: "Samsung", name: "Samsung A17", storage: "4G 64GB", base: 6990, current: 4990, change: -2000 },
+];
+
+const tubeVideos = [
+  { channel: "吉利小師妹", title: "中共砸2万亿并AI｜六爻预测中美AI决战｜普通人如何吃上肉", time: "06/14 上午10:55" },
+  { channel: "一个狠人", title: "A股「涨死」全解剖：屠刀从散户转向机构，耐心资本遍你只准量", time: "06/14 上午08:58" },
+  { channel: "马斯克 NEWS", title: "马斯克固人财富被腰斩，太牛了。和朋友们一起感慨一下。", time: "06/14 上午02:20" },
+  { channel: "张内咸脱口秀", title: "一个「脱北者」拼命想回平壤，为什么中国反而最尴尬？EP076", time: "06/13 下午11:12" },
+  { channel: "Sun Channel", title: "一句「為你好」正在親手摧毀你的家庭？孩子越來越反叛", time: "06/13 下午09:28" },
+  { channel: "马国库", title: "一个视频了解朝鲜政治：金正恩如何清算父亲？", time: "06/13 下午08:15" },
+];
+
+const financeGroups = [
+  {
+    title: "台股與美股",
+    items: [
+      { name: "Taiwan Weighted", value: "22,500.00", change: "+230.87", trend: "up" },
+      { name: "S&P 500 Index", value: "5,431.46", change: "+17.85", trend: "up" },
+      { name: "NASDAQ Composite", value: "17,688.84", change: "+79.88", trend: "up" },
+      { name: "CBOE Volatility Index", value: "17.68", change: "-1.72", trend: "down" },
+    ],
+  },
+  {
+    title: "匯率與估值",
+    items: [
+      { name: "USD/TWD", value: "31.61", change: "+0.05", trend: "up" },
+      { name: "Schiller PE Ratio", value: "41.43", change: "+0.21", trend: "up" },
+      { name: "美元指數", value: "98.12", change: "-0.18", trend: "down" },
+    ],
+  },
+  {
+    title: "加密與商品",
+    items: [
+      { name: "Bitcoin USD", value: "64,472.5", change: "+264.88", trend: "up" },
+      { name: "Ethereum USD", value: "1,681.02", change: "+11.35", trend: "up" },
+      { name: "Gold COMEX", value: "4,239.9", change: "+6.81", trend: "up" },
+      { name: "Crude Oil", value: "87.33", change: "-0.52", trend: "down" },
+    ],
+  },
+];
+
+function ToolWorkbench() {
+  const [activeTool, setActiveTool] = useState<ToolTabId>("price");
+  const [productUrl, setProductUrl] = useState(recentPriceLinks[0].url);
+  const [appleQuery, setAppleQuery] = useState("iPhone 17");
+  const [samsungQuery, setSamsungQuery] = useState("Samsung 26");
+  const [collapsed, setCollapsed] = useState<Record<string, boolean>>({});
+  const [tubeFilter, setTubeFilter] = useState("全部頻道");
+  const minPrice = Math.min(...priceHistory.map((item) => item.price));
+  const maxPrice = Math.max(...priceHistory.map((item) => item.price));
+
+  const filteredTubeVideos = tubeFilter === "全部頻道"
+    ? tubeVideos
+    : tubeVideos.filter((video) => video.channel === tubeFilter);
+  const channels = ["全部頻道", ...Array.from(new Set(tubeVideos.map((video) => video.channel)))];
+
+  return (
+    <section class="tools-workbench">
+      <div class="tool-tabs" role="tablist" aria-label="鋒兄工具子項目">
+        {toolTabs.map((tab) => (
+          <button
+            type="button"
+            role="tab"
+            aria-selected={activeTool === tab.id}
+            class={activeTool === tab.id ? "tool-tab active" : "tool-tab"}
+            onClick={() => setActiveTool(tab.id)}
+          >
+            <Icon name={tab.icon} />
+            <span>{tab.label}</span>
+          </button>
+        ))}
+      </div>
+
+      {activeTool === "price" && (
+        <div class="tool-stack accent-amber">
+          <section class="tool-card">
+            <div class="tool-head">
+              <span class="tool-mark"><Icon name="tool" /></span>
+              <div>
+                <h3>鋒兄比價</h3>
+                <p>貼上商品網址，取得目前價格與歷史最低價圖表。</p>
+              </div>
+            </div>
+            <div class="price-query">
+              <label>
+                <span>商品網址</span>
+                <input value={productUrl} onInput={(event) => setProductUrl(event.currentTarget.value)} />
+              </label>
+              <button type="button" onClick={() => setProductUrl(productUrl.trim() || recentPriceLinks[0].url)}>
+                查詢歷史價格
+              </button>
+            </div>
+            <div class="source-grid">
+              <div><strong>BigGo API</strong><span>查詢 BigGo 歷史價格資料</span></div>
+              <div><strong>本地估值</strong><span>保留本地測試流程，不連外查價</span></div>
+            </div>
+          </section>
+
+          <section class="tool-card">
+            <div class="section-title">
+              <h4>最近連結</h4>
+              <span>{recentPriceLinks.length} 筆</span>
+            </div>
+            <div class="recent-links">
+              {recentPriceLinks.map((link) => (
+                <button type="button" onClick={() => setProductUrl(link.url)}>
+                  <strong>{link.title}</strong>
+                  <span>{link.url}</span>
+                </button>
+              ))}
+            </div>
+          </section>
+
+          <section class="tool-card price-result">
+            <div class="section-title">
+              <h4>比價結果</h4>
+              <a href={productUrl} target="_blank" rel="noreferrer">開啟商品</a>
+            </div>
+            <div class="result-summary">
+              <div><span>目前價格</span><strong>12,199 TWD</strong></div>
+              <div><span>歷史最低價</span><strong>12,199 TWD</strong></div>
+              <div><span>歷史最高價</span><strong>12,999 TWD</strong></div>
+            </div>
+            <div class="mini-line" aria-label="歷史價格走勢">
+              {priceHistory.map((item) => {
+                const left = priceHistory.length === 1 ? 50 : (priceHistory.indexOf(item) / (priceHistory.length - 1)) * 100;
+                const top = maxPrice === minPrice ? 50 : 80 - ((item.price - minPrice) / (maxPrice - minPrice)) * 54;
+                return <span style={{ left: `${left}%`, top: `${top}%` }} title={`${item.date} ${item.price}`} />;
+              })}
+            </div>
+          </section>
+        </div>
+      )}
+
+      {activeTool === "phone" && (
+        <div class="tool-stack accent-blue">
+          <section class="tool-card">
+            <div class="tool-head compact-head">
+              <span class="tool-mark blue"><Icon name="phone" /></span>
+              <div>
+                <h3>手機比價</h3>
+                <p>根據地標網通與通路估價，可搜尋 iPhone、Samsung 等機型。</p>
+              </div>
+            </div>
+            <div class="phone-search-grid">
+              {[
+                ["apple", "蘋果手機區塊", appleQuery, setAppleQuery],
+                ["samsung", "三星手機區塊", samsungQuery, setSamsungQuery],
+              ].map(([id, title, value, setter]) => (
+                <div class="phone-search-card">
+                  <div class="card-row">
+                    <strong>{title as string}</strong>
+                    <button type="button" onClick={() => setCollapsed((current) => ({ ...current, [id as string]: !current[id as string] }))}>
+                      {collapsed[id as string] ? "展開" : "收合"}
+                    </button>
+                  </div>
+                  {!collapsed[id as string] && (
+                    <>
+                      <p>預設查詢：{value as string}，每月初重新整理。</p>
+                      <div class="inline-form">
+                        <input value={value as string} onInput={(event) => (setter as (value: string) => void)(event.currentTarget.value)} />
+                        <button type="button">搜尋中</button>
+                        <button type="button" class="soft">重新抓取</button>
+                      </div>
+                    </>
+                  )}
+                </div>
+              ))}
+            </div>
+          </section>
+
+          <section class="tool-card phone-chart">
+            <div class="section-title">
+              <div>
+                <small>LANDTOP CHART</small>
+                <h4>地標網通 vs 通路均價</h4>
+              </div>
+              <Icon name="chart" />
+            </div>
+            {phoneRows.map((row) => (
+              <div class="bar-row">
+                <div><strong>{row.name}</strong><span>{row.storage}</span></div>
+                <div class="bars">
+                  <span class="base" style={{ width: `${Math.round((row.base / 8000) * 100)}%` }} />
+                  <span class="current" style={{ width: `${Math.round((row.current / 8000) * 100)}%` }} />
+                </div>
+                <strong>NT$ {row.current.toLocaleString("zh-TW")}</strong>
+              </div>
+            ))}
+          </section>
+
+          <section class="tool-card product-grid">
+            {phoneRows.map((row) => (
+              <article>
+                <small>{row.brand}</small>
+                <h4>{row.name} {row.storage}</h4>
+                <div class="price-pills">
+                  <span>建議售價 NT$ {row.base.toLocaleString("zh-TW")}</span>
+                  <span>地標網通 NT$ {row.current.toLocaleString("zh-TW")}</span>
+                  <span>差價 {row.change.toLocaleString("zh-TW")}</span>
+                </div>
+              </article>
+            ))}
+          </section>
+        </div>
+      )}
+
+      {activeTool === "tube" && (
+        <div class="tool-stack accent-red">
+          <section class="tool-card tube-hero">
+            <div class="tool-head">
+              <span class="tool-mark red"><Icon name="play" /></span>
+              <div>
+                <small>FENGBRO TUBE</small>
+                <h3>鋒兄Tube</h3>
+                <p>追蹤指定 YouTube 頻道最新影片，每個頻道顯示 10 部，目前追蹤 24 個頻道。</p>
+              </div>
+            </div>
+            <div class="tube-actions">
+              <span>更新：2026/6/14 上午11:37:19</span>
+              <button type="button">頻道管理</button>
+              <button type="button" class="danger-fill">重新整理</button>
+            </div>
+          </section>
+
+          <section class="tool-card">
+            <div class="section-title">
+              <h4>3 天內新影片：{filteredTubeVideos.length} 部</h4>
+              <select value={tubeFilter} onChange={(event) => setTubeFilter(event.currentTarget.value)}>
+                {channels.map((channel) => <option value={channel}>{channel}</option>)}
+              </select>
+            </div>
+            <div class="tube-list">
+              {filteredTubeVideos.map((video) => (
+                <article>
+                  <strong>{video.title}</strong>
+                  <span>{video.channel} / {video.time}</span>
+                </article>
+              ))}
+            </div>
+          </section>
+        </div>
+      )}
+
+      {activeTool === "finance" && (
+        <div class="tool-stack accent-green">
+          <section class="tool-card finance-hero">
+            <div class="tool-head">
+              <span class="tool-mark green"><Icon name="chart" /></span>
+              <div>
+                <small>GLOBAL MARKET</small>
+                <h3>鋒兄金融</h3>
+                <p>集中追蹤指數、匯率、加密貨幣、商品與估值指標。</p>
+              </div>
+            </div>
+            <div class="finance-kpi">
+              <span>資料源 16 個</span>
+              <span>更新間隔 2 分鐘</span>
+            </div>
+          </section>
+
+          {financeGroups.map((group) => (
+            <section class="tool-card finance-section">
+              <div class="section-title">
+                <h4>{group.title}</h4>
+                <span>{group.items.length} 筆</span>
+              </div>
+              <div class="finance-grid">
+                {group.items.map((item) => (
+                  <article>
+                    <div class="card-row">
+                      <strong>{item.name}</strong>
+                      <span class={item.trend === "up" ? "trend up" : "trend down"}>{item.change}</span>
+                    </div>
+                    <b>{item.value}</b>
+                    <div class="spark">
+                      <span style={{ width: item.trend === "up" ? "74%" : "46%" }} />
+                    </div>
+                  </article>
+                ))}
+              </div>
+            </section>
+          ))}
+        </div>
+      )}
+    </section>
   );
 }
 
@@ -375,12 +779,15 @@ export default function FengbroCrudApp() {
   const [draft, setDraft] = useState<Row>(() => createEmptyRow(modules[0]));
   const [message, setMessage] = useState("請設定 Sanity 或使用環境變數");
   const [loading, setLoading] = useState(false);
+  const [uploading, setUploading] = useState(false);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [deleteAllModal, setDeleteAllModal] = useState(false);
   const [deleteConfirmText, setDeleteConfirmText] = useState("");
   const fileRef = useRef<HTMLInputElement>(null);
+  const uploadRef = useRef<HTMLInputElement>(null);
   const activeModule = moduleById[activeId];
   const isSettings = activeId === "settings";
+  const uploadConfig = mediaUploadModules[activeId];
 
   const loadRows = async (moduleId = activeId, nextSettings = settings) => {
     if (moduleId === "settings") return;
@@ -590,6 +997,37 @@ export default function FengbroCrudApp() {
     input.value = "";
   };
 
+  const uploadMedia = async (event: Event) => {
+    const input = event.currentTarget as HTMLInputElement;
+    const file = input.files?.[0];
+    if (!file || !uploadConfig) return;
+
+    const form = new FormData();
+    form.append("file", file);
+    setUploading(true);
+    try {
+      const response = await fetch(`/api/sanity-asset/${activeId}`, {
+        method: "POST",
+        headers: {
+          "x-sanity-project-id": settings.projectId,
+          "x-sanity-dataset": settings.dataset,
+          "x-sanity-token": settings.token,
+          "x-sanity-api-version": settings.apiVersion,
+        },
+        body: form,
+      });
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.error || "Sanity 上傳失敗");
+      updateDraft("url", data.url || "");
+      setMessage(`已上傳 ${file.name} 到 Sanity Assets`);
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : "Sanity 上傳失敗");
+    } finally {
+      setUploading(false);
+      input.value = "";
+    }
+  };
+
   const saveSettings = () => {
     localStorage.setItem(settingsKey, JSON.stringify(settings));
     setMessage("已保存 Sanity 設定到 localStorage");
@@ -666,7 +1104,7 @@ export default function FengbroCrudApp() {
             <h2>{activeModule.label}</h2>
             <p>{activeModule.description}</p>
           </div>
-          {!isSettings && (
+          {!isSettings && activeId !== "tools" && (
             <div class="top-actions">
               <button type="button" class="ghost-button" onClick={() => void loadRows()}>重新載入</button>
               <button type="button" class="ghost-button" onClick={() => void importRows(activeModule.seed, "範例資料")}>匯入範例</button>
@@ -713,6 +1151,8 @@ export default function FengbroCrudApp() {
               )}
             </div>
           </section>
+        ) : activeId === "tools" ? (
+          <ToolWorkbench />
         ) : (
           <>
             <section class="metric-row" aria-label="資料概況">
@@ -773,7 +1213,12 @@ export default function FengbroCrudApp() {
                             {activeModule.fields.slice(0, 6).map((field) => (
                               <td>
                                 {field.type === "url" && row[field.key]
-                                  ? <a href={String(row[field.key])} target="_blank" rel="noreferrer">{String(row[field.key])}</a>
+                                  ? (
+                                    <div class="media-cell">
+                                      <MediaPreview moduleId={activeId} url={String(row[field.key])} compact />
+                                      <a href={String(row[field.key])} target="_blank" rel="noreferrer">{String(row[field.key])}</a>
+                                    </div>
+                                  )
                                   : field.type === "boolean"
                                   ? <span class={row[field.key] ? "pill on" : "pill"}>{row[field.key] ? "是" : "否"}</span>
                                   : <span class={field.type === "textarea" ? "multiline" : ""}>{String(row[field.key] ?? "")}</span>}
@@ -828,6 +1273,32 @@ export default function FengbroCrudApp() {
                     </label>
                   ))}
                 </div>
+                {previewModuleIds.has(activeId) && String(draft.url || "").trim() && (
+                  <div class="editor-preview">
+                    <span>媒體預覽</span>
+                    <MediaPreview moduleId={activeId} url={String(draft.url || "")} />
+                  </div>
+                )}
+                {uploadConfig && (
+                  <div class="upload-box">
+                    <input
+                      ref={uploadRef}
+                      type="file"
+                      accept={uploadConfig.accept}
+                      class="visually-hidden"
+                      onChange={(event) => void uploadMedia(event)}
+                    />
+                    <button
+                      type="button"
+                      class="ghost-button upload-button"
+                      disabled={uploading || loading}
+                      onClick={() => uploadRef.current?.click()}
+                    >
+                      {uploading ? "上傳中..." : uploadConfig.label}
+                    </button>
+                    <p>檔案會上傳到 Sanity Assets，成功後自動填入「連結」欄位。</p>
+                  </div>
+                )}
                 <button class="save-button" type="submit" disabled={loading}>{editingId ? "儲存到 Sanity" : "建立 Sanity 文件"}</button>
               </form>
             </section>
