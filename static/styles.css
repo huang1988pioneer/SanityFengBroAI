@@ -252,7 +252,7 @@ svg {
 .workspace {
   min-width: 0;
   width: min(860px, calc(100vw - 176px));
-  margin-left: clamp(18px, calc((100vw - 1080px) * 0.55), 560px);
+  margin-left: 18px;
   padding: 16px 0 48px;
 }
 
