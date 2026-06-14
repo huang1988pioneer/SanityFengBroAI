@@ -499,6 +499,33 @@ const tubeVideos = [
   { channel: "马国库", title: "一个视频了解朝鲜政治：金正恩如何清算父亲？", time: "06/13 下午08:15" },
 ];
 
+const tubeChannelCards = [
+  {
+    channel: "吉利小師妹",
+    count: 10,
+    videos: [
+      { title: "中共砸2万亿并AI｜六爻预测中美AI决战", date: "06/14 上午10:55", thumb: "https://i.ytimg.com/vi/0vC6h6JpQdQ/hqdefault.jpg" },
+      { title: "周易預測：閉關鎖國加速資產鎖死", date: "06/07 下午1:25", thumb: "https://i.ytimg.com/vi/dQw4w9WgXcQ/hqdefault.jpg" },
+      { title: "習下禁令？面斥女相總長反骨", date: "05/24 下午09:31", thumb: "https://i.ytimg.com/vi/ScMzIvxBSi4/hqdefault.jpg" },
+      { title: "升斗小民要逃亡？伊朗局勢升溫", date: "05/17 下午10:42", thumb: "https://i.ytimg.com/vi/kJQP7kiw5Fk/hqdefault.jpg" },
+      { title: "天災or政治博弈 周易揭秘山西礦難", date: "05/26 下午09:21", thumb: "https://i.ytimg.com/vi/9bZkp7q19f0/hqdefault.jpg" },
+    ],
+  },
+  {
+    channel: "一個狠人",
+    count: 10,
+    videos: [
+      { title: "A股漲死全解剖：散戶與機構轉向", date: "06/14 上午08:58", thumb: "https://i.ytimg.com/vi/tgbNymZ7vqY/hqdefault.jpg" },
+      { title: "房客最後出逃的機會", date: "06/11 下午08:20", thumb: "https://i.ytimg.com/vi/M7lc1UVf-VE/hqdefault.jpg" },
+      { title: "新華網全球最貴人工智能", date: "06/08 下午04:10", thumb: "https://i.ytimg.com/vi/e-ORhEE9VVg/hqdefault.jpg" },
+      { title: "人性笑砍刀鐮刀 股市反殺指南", date: "06/06 下午09:14", thumb: "https://i.ytimg.com/vi/uelHwf8o7_U/hqdefault.jpg" },
+      { title: "AI干掉一半工作，你的專業還安全嗎", date: "06/03 下午10:07", thumb: "https://i.ytimg.com/vi/CevxZvSJLk8/hqdefault.jpg" },
+    ],
+  },
+];
+
+const phoneHistoryPoints = ["06/08", "06/09", "06/10", "06/11", "06/12", "06/13", "06/14"];
+
 const financeGroups = [
   {
     title: "台股與美股",
@@ -528,8 +555,13 @@ const financeGroups = [
   },
 ];
 
-function ToolWorkbench() {
-  const [activeTool, setActiveTool] = useState<ToolTabId>("price");
+function ToolWorkbench({
+  activeTool,
+  setActiveTool,
+}: {
+  activeTool: ToolTabId;
+  setActiveTool: (id: ToolTabId) => void;
+}) {
   const [productUrl, setProductUrl] = useState(recentPriceLinks[0].url);
   const [priceCheckedUrl, setPriceCheckedUrl] = useState(recentPriceLinks[0].url);
   const [priceCheckedAt, setPriceCheckedAt] = useState("尚未查詢");
@@ -716,6 +748,30 @@ function ToolWorkbench() {
               </article>
             ))}
           </section>
+
+          <section class="tool-card weekly-history">
+            <div class="section-title">
+              <div>
+                <small>WEEKLY HISTORY</small>
+                <h4>地標網通歷史價格</h4>
+                <p>每 7 天記錄一次，目前用本地樣本模擬 Appwrite 版的週史圖。</p>
+              </div>
+              <div class="history-summary">
+                <span>歷史最低<br /><strong>NT$ 4,990</strong></span>
+                <span>歷史最高<br /><strong>NT$ 7,490</strong></span>
+              </div>
+            </div>
+            <div class="history-legend">
+              {visiblePhoneRows.slice(0, 2).map((row, index) => (
+                <span class={index === 0 ? "blue" : "orange"}>{row.name} {row.storage}</span>
+              ))}
+            </div>
+            <div class="history-chart" aria-label="手機週史價格">
+              {phoneHistoryPoints.map((point, index) => (
+                <i style={{ left: `${14 + index * 11}%`, top: `${56 - (index % 2) * 4}%` }} title={point} />
+              ))}
+            </div>
+          </section>
         </div>
       )}
 
@@ -753,6 +809,29 @@ function ToolWorkbench() {
               ))}
             </div>
           </section>
+
+          {tubeChannelCards.map((channel) => (
+            <section class="tool-card tube-channel-section">
+              <div class="section-title">
+                <div>
+                  <h4>{channel.channel}</h4>
+                  <a href="https://www.youtube.com/" target="_blank" rel="noreferrer">開啟頻道</a>
+                </div>
+                <span>{channel.count} 部影片</span>
+              </div>
+              <div class="tube-channel-grid">
+                {channel.videos.map((video) => (
+                  <article>
+                    <img src={video.thumb} alt="" loading="lazy" />
+                    <div>
+                      <strong>{video.title}</strong>
+                      <span>{channel.channel} / {video.date}</span>
+                    </div>
+                  </article>
+                ))}
+              </div>
+            </section>
+          ))}
         </div>
       )}
 
@@ -805,7 +884,8 @@ function ToolWorkbench() {
 export default function FengbroCrudApp() {
   const [rows, setRows] = useState<Row[]>([]);
   const [settings, setSettings] = useState<SanitySettings>(defaultSettings);
-  const [activeId, setActiveId] = useState("subscription");
+  const [activeId, setActiveId] = useState("tools");
+  const [activeTool, setActiveTool] = useState<ToolTabId>("price");
   const [query, setQuery] = useState("");
   const [editingId, setEditingId] = useState<string | null>(null);
   const [draft, setDraft] = useState<Row>(() => createEmptyRow(modules[0]));
@@ -820,6 +900,12 @@ export default function FengbroCrudApp() {
   const activeModule = moduleById[activeId];
   const isSettings = activeId === "settings";
   const uploadConfig = mediaUploadModules[activeId];
+  const todayLabel = new Intl.DateTimeFormat("zh-TW", {
+    month: "long",
+    day: "numeric",
+    weekday: "long",
+    timeZone: "Asia/Taipei",
+  }).format(new Date());
 
   const loadRows = async (moduleId = activeId, nextSettings = settings) => {
     if (moduleId === "settings") return;
@@ -1112,32 +1198,71 @@ export default function FengbroCrudApp() {
     <div class="app-shell">
       <aside class="sidebar">
         <div class="brand">
-          <div class="brand-mark">鋒</div>
+          <div class="brand-mark">⌘</div>
           <div>
-            <h1>鋒兄 AI</h1>
-            <p>Deno Fresh + Sanity</p>
+            <p>FENGBRO</p>
+            <h1>AI Appwrite Console</h1>
+          </div>
+        </div>
+        <div class="design-mode">
+          <Icon name="chart" />
+          <div>
+            <span>DESIGN MODE</span>
+            <strong>Impeccable 2026</strong>
           </div>
         </div>
         <nav class="nav-list" aria-label="主選單">
           {modules.map((module) => (
-            <button
-              type="button"
-              class={module.id === activeId ? "nav-item active" : "nav-item"}
-              onClick={() => setActiveId(module.id)}
-            >
-              <span class="nav-icon"><Icon name={module.icon} /></span>
-              <span>{module.shortLabel}</span>
-              <span class="nav-count">{module.id === activeId && !isSettings ? rows.length : ""}</span>
-            </button>
+            <div class="nav-group">
+              <button
+                type="button"
+                class={module.id === activeId ? "nav-item active" : "nav-item"}
+                onClick={() => setActiveId(module.id)}
+              >
+                <span class="nav-icon"><Icon name={module.icon} /></span>
+                <span>{module.label}</span>
+                <span class="nav-count">{module.id === activeId && !isSettings ? rows.length : ""}</span>
+              </button>
+              {module.id === "tools" && activeId === "tools" && (
+                <div class="nav-sublist" aria-label="鋒兄工具子項目">
+                  {toolTabs.map((tab) => (
+                    <button
+                      type="button"
+                      class={activeTool === tab.id ? "nav-subitem active" : "nav-subitem"}
+                      onClick={() => setActiveTool(tab.id)}
+                    >
+                      <span class="nav-icon"><Icon name={tab.icon} /></span>
+                      <span>{tab.label}</span>
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
           ))}
         </nav>
+        <div class="workspace-card">
+          <strong>Unified Household Workspace</strong>
+          <p>訂閱、銀行、日常、影音、文件與媒體集中在一個鋒兄一致的介面裡。</p>
+        </div>
       </aside>
 
-      <main class="workspace">
+      <main class={`workspace module-${activeId}`}>
+        <header class="surface-bar">
+          <div>
+            <span>ACTIVE SURFACE</span>
+            <strong>{activeId === "tools" ? toolTabs.find((tab) => tab.id === activeTool)?.label : activeModule.shortLabel}</strong>
+          </div>
+          <div class="surface-pills">
+            <span><b>TODAY</b>{todayLabel}</span>
+            <span><b>MODULES</b>{modules.length} 個模組</span>
+          </div>
+        </header>
+
+        <section class="console-card">
         <header class="topbar">
           <div>
-            <p class="crumb">工作台 / {activeModule.shortLabel}</p>
-            <h2>{activeModule.label}</h2>
+            <p class="crumb">CONSOLE VIEW</p>
+            <h2>{activeId === "tools" ? "鋒兄工具" : activeModule.label}</h2>
             <p>{activeModule.description}</p>
           </div>
           {!isSettings && activeId !== "tools" && (
@@ -1188,7 +1313,7 @@ export default function FengbroCrudApp() {
             </div>
           </section>
         ) : activeId === "tools" ? (
-          <ToolWorkbench />
+          <ToolWorkbench activeTool={activeTool} setActiveTool={setActiveTool} />
         ) : (
           <>
             <section class="metric-row" aria-label="資料概況">
@@ -1247,7 +1372,7 @@ export default function FengbroCrudApp() {
                               />
                             </td>
                             {activeModule.fields.slice(0, 6).map((field) => (
-                              <td>
+                              <td class={field.type === "url" ? "url-cell" : ""}>
                                 {field.type === "url" && row[field.key]
                                   ? (
                                     <div class="media-cell">
@@ -1340,6 +1465,7 @@ export default function FengbroCrudApp() {
             </section>
           </>
         )}
+        </section>
       </main>
 
       {/* 刪除確認彈窗 */}
