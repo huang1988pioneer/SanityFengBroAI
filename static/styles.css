@@ -693,25 +693,27 @@ video.media-preview {
 }
 
 .workspace.module-documents {
-  /* no fixed width - let grid fill */
+  width: min(100%, calc(100vw - 180px));
+  margin-left: 18px;
+  padding-right: 18px;
 }
 
 .module-documents .content-grid {
-  grid-template-columns: minmax(0, 1.6fr) minmax(600px, 800px);
+  grid-template-columns: minmax(0, 1fr) minmax(420px, 520px);
   gap: 24px;
 }
 
 .module-documents .table-scroll table {
-  min-width: 2200px;
+  min-width: 1760px;
 }
 
 .module-documents .url-cell {
-  width: clamp(800px, 60vw, 1300px);
+  width: clamp(760px, 58vw, 1120px);
   max-width: none;
 }
 
 .module-documents .media-cell {
-  min-width: 800px;
+  min-width: 720px;
   gap: 12px;
 }
 
@@ -722,8 +724,8 @@ video.media-preview {
 
 .module-documents .media-preview.compact.document {
   height: auto;
-  min-height: 800px;
-  aspect-ratio: 16 / 10;
+  min-height: clamp(540px, 72vh, 980px);
+  aspect-ratio: 4 / 3;
 }
 
 .module-documents .editor-preview {
@@ -731,12 +733,12 @@ video.media-preview {
 }
 
 .module-documents .editor-preview .media-preview.document {
-  min-height: min(90vh, 1200px);
+  min-height: min(86vh, 1100px);
   aspect-ratio: auto;
 }
 
 .module-documents .editor-preview .media-preview.document iframe {
-  min-height: min(90vh, 1200px);
+  min-height: min(86vh, 1100px);
 }
 
 .module-documents .document-link {
@@ -1224,17 +1226,17 @@ tr.row-selected td {
   z-index: 1100;
   background:
     linear-gradient(180deg, rgba(34, 28, 22, 0.92), rgba(26, 22, 18, 0.96));
-  padding: clamp(12px, 2vw, 24px);
+  padding: clamp(6px, 1vw, 14px);
 }
 
 .document-lightbox-shell {
   display: grid;
   grid-template-rows: auto minmax(0, 1fr);
-  width: min(96vw, 1800px);
-  height: calc(100vh - clamp(24px, 4vw, 48px));
+  width: min(99vw, 2200px);
+  height: calc(100vh - clamp(12px, 2vw, 28px));
   margin: 0 auto;
   border: 1px solid rgba(255, 248, 236, 0.2);
-  border-radius: 24px;
+  border-radius: 16px;
   background: rgba(255, 252, 246, 0.98);
   box-shadow: 0 28px 80px rgba(0, 0, 0, 0.34);
   overflow: hidden;
@@ -1247,7 +1249,7 @@ tr.row-selected td {
   gap: 16px;
   border-bottom: 1px solid var(--line);
   background: rgba(255, 251, 244, 0.94);
-  padding: 16px 20px;
+  padding: 12px 16px;
 }
 
 .document-lightbox-bar strong {
