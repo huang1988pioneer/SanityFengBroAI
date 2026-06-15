@@ -589,6 +589,7 @@ const defaultTubeChannels = [
   { alias: "一個鳳梨", sourceUrl: "https://www.youtube.com/@henren778/videos" },
   { alias: "Sun Channel", sourceUrl: "https://www.youtube.com/@SunChannelHK/videos" },
 ];
+const tubeChannelsKey = "fengbro.tools.tube.channels";
 
 function formatMoney(value: number | null | undefined, currency = "TWD") {
   if (typeof value !== "number") return "-";
@@ -616,6 +617,41 @@ function groupQuotes(quotes: FinanceQuote[]) {
   }, {});
 }
 
+function normalizeTubeSource(input: string) {
+  const trimmed = input.trim();
+  if (!trimmed) return "";
+  if (trimmed.startsWith("@")) return `https://www.youtube.com/${encodeURI(trimmed)}/videos`;
+  if (!/^https?:\/\//i.test(trimmed)) return `https://www.youtube.com/@${encodeURIComponent(trimmed)}/videos`;
+  return trimmed.replace(/\/$/, "").replace(/\/videos$/i, "/videos");
+}
+
+function normalizeTubeChannels(input: unknown) {
+  const values = Array.isArray(input) ? input : defaultTubeChannels;
+  const seen = new Set<string>();
+  const channels: typeof defaultTubeChannels = [];
+  for (const item of values) {
+    if (!item || typeof item !== "object") continue;
+    const record = item as { alias?: unknown; sourceUrl?: unknown };
+    const sourceUrl = typeof record.sourceUrl === "string" ? normalizeTubeSource(record.sourceUrl) : "";
+    if (!sourceUrl || seen.has(sourceUrl)) continue;
+    seen.add(sourceUrl);
+    channels.push({
+      alias: typeof record.alias === "string" ? record.alias.trim() : "",
+      sourceUrl,
+    });
+  }
+  return channels.length ? channels : defaultTubeChannels;
+}
+
+function getSavedTubeChannels() {
+  if (typeof localStorage === "undefined") return defaultTubeChannels;
+  try {
+    return normalizeTubeChannels(JSON.parse(localStorage.getItem(tubeChannelsKey) || "[]"));
+  } catch {
+    return defaultTubeChannels;
+  }
+}
+
 function ToolWorkbench({
   activeTool,
   setActiveTool,
@@ -635,7 +671,7 @@ function ToolWorkbench({
   const [tubeLoading, setTubeLoading] = useState(false);
   const [tubeError, setTubeError] = useState("");
   const [tubeLoadedOnce, setTubeLoadedOnce] = useState(false);
-  const [tubeChannels, setTubeChannels] = useState(defaultTubeChannels);
+  const [tubeChannels, setTubeChannels] = useState(getSavedTubeChannels);
   const [tubeAlias, setTubeAlias] = useState("");
   const [tubeUrl, setTubeUrl] = useState("");
   const [financeResult, setFinanceResult] = useState<FinanceResult | null>(null);
@@ -742,15 +778,21 @@ function ToolWorkbench({
     if (activeTool === "finance" && !financeLoadedOnce && !financeLoading) void loadFinance();
   }, [activeTool]);
 
+  useEffect(() => {
+    try {
+      localStorage.setItem(tubeChannelsKey, JSON.stringify(tubeChannels));
+    } catch {
+      // Storage can be unavailable in private contexts; the live API still works.
+    }
+  }, [tubeChannels]);
+
   const addTubeChannel = () => {
-    const sourceUrl = tubeUrl.trim().startsWith("@")
-      ? `https://www.youtube.com/${encodeURI(tubeUrl.trim())}/videos`
-      : tubeUrl.trim();
+    const sourceUrl = normalizeTubeSource(tubeUrl);
     if (!sourceUrl) {
       setTubeError("請輸入 YouTube @handle 或頻道網址");
       return;
     }
-    setTubeChannels((items) => [...items.filter((item) => item.sourceUrl !== sourceUrl), { alias: tubeAlias.trim(), sourceUrl }]);
+    setTubeChannels((items) => normalizeTubeChannels([...items.filter((item) => item.sourceUrl !== sourceUrl), { alias: tubeAlias.trim(), sourceUrl }]));
     setTubeAlias("");
     setTubeUrl("");
     setTubeResult(null);
@@ -934,6 +976,11 @@ function ToolWorkbench({
               <input value={tubeAlias} onInput={(event) => setTubeAlias(event.currentTarget.value)} placeholder="頻道別名" />
               <input value={tubeUrl} onInput={(event) => setTubeUrl(event.currentTarget.value)} placeholder="@handle 或 YouTube 頻道網址" />
               <button type="button" onClick={addTubeChannel}>加入頻道</button>
+              <button type="button" class="soft" onClick={() => {
+                setTubeChannels(defaultTubeChannels);
+                setTubeResult(null);
+                setTubeLoadedOnce(false);
+              }}>恢復預設</button>
             </div>
             {tubeError ? <p class="tool-error">{tubeError}</p> : null}
             <div class="tube-list">
@@ -941,6 +988,16 @@ function ToolWorkbench({
                 <article>
                   <strong>{channel.alias || channel.sourceUrl}</strong>
                   <span>{channel.sourceUrl}</span>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setTubeChannels((items) => normalizeTubeChannels(items.filter((item) => item.sourceUrl !== channel.sourceUrl)));
+                      setTubeResult(null);
+                      setTubeLoadedOnce(false);
+                    }}
+                  >
+                    移除
+                  </button>
                 </article>
               ))}
             </div>
