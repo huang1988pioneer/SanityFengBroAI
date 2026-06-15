@@ -1227,6 +1227,7 @@ tr.row-selected td {
   background:
     linear-gradient(180deg, rgba(34, 28, 22, 0.92), rgba(26, 22, 18, 0.96));
   padding: clamp(6px, 1vw, 14px);
+  overscroll-behavior: contain;
 }
 
 .document-lightbox-shell {
@@ -1253,13 +1254,22 @@ tr.row-selected td {
 }
 
 .document-lightbox-bar strong {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
   font-size: 18px;
 }
 
 .document-lightbox-actions {
   display: flex;
+  flex-shrink: 0;
   align-items: center;
   gap: 10px;
+}
+
+.document-lightbox-actions .ghost-button {
+  white-space: nowrap;
 }
 
 .document-lightbox-frame {
@@ -1272,6 +1282,7 @@ tr.row-selected td {
   width: 100%;
   height: 100%;
   border: 0;
+  background: #fff;
 }
 
 /* ── Loading Spinner ── */
@@ -2050,6 +2061,15 @@ tr.row-selected td {
   .document-lightbox-actions {
     align-items: stretch;
     flex-direction: column;
+  }
+
+  .document-lightbox-bar strong {
+    white-space: normal;
+  }
+
+  .document-lightbox-actions .ghost-button {
+    justify-content: center;
+    width: 100%;
   }
 
   .document-lightbox-shell {
