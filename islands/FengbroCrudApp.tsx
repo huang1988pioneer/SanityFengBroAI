@@ -213,7 +213,7 @@ const modules: Module[] = [
     seed: [
       { name: "鋒兄比價", kind: "price-compare", url: "https://24h.pchome.com.tw/", query: "KIOXIA SSD", note: "商品歷史價格紀錄。" },
       { name: "手機比價", kind: "phone-compare", url: "https://www.landtop.com.tw/", query: "Samsung 26", note: "手機商品比價。" },
-      { name: "鋒兄Tube", kind: "fengbro-tube", url: "https://www.youtube.com/", query: "henren778", note: "頻道更新整理。" },
+      { name: "鋒兄Tube", kind: "fengbro-tube", url: "https://www.youtube.com/", query: "jilixiaoshimei", note: "頻道更新整理。" },
       { name: "鋒兄金融", kind: "fengbro-finance", url: "https://finance.yahoo.com/", query: "TWII, USD/TWD, BTC", note: "金融指標與估值追蹤。" },
     ],
   },
@@ -586,8 +586,6 @@ const quickPriceLinks = [
 
 const defaultTubeChannels = [
   { alias: "吉利小妹", sourceUrl: "https://www.youtube.com/@jilixiaoshimei/videos" },
-  { alias: "一個鳳梨", sourceUrl: "https://www.youtube.com/@henren778/videos" },
-  { alias: "Sun Channel", sourceUrl: "https://www.youtube.com/@SunChannelHK/videos" },
 ];
 const tubeChannelsKey = "fengbro.tools.tube.channels";
 

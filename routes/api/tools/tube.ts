@@ -11,12 +11,8 @@ const USER_AGENT =
 
 const DEFAULT_CHANNELS = [
   "https://www.youtube.com/@SJdiao/videos",
-  "https://www.youtube.com/@henren778/videos",
-  "https://www.youtube.com/@libertas1984/videos",
   "https://www.youtube.com/@sunlao/videos",
-  "https://www.youtube.com/@SunChannelHK/videos",
   "https://www.youtube.com/@jilixiaoshimei/videos",
-  "https://www.youtube.com/@jiangtaigong/videos",
 ].map((sourceUrl) => ({ alias: "", sourceUrl }));
 
 function json(data: unknown, status = 200) {
