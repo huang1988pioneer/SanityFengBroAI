@@ -1,9 +1,10 @@
 {
   "tasks": {
-    "check": "deno check dev.ts main.ts fresh.config.ts fresh.gen.ts routes/index.tsx routes/api/ islands/FengbroCrudApp.tsx",
-    "start": "deno run -A --watch=static/,routes/,islands/ dev.ts",
+    "check": "deno check dev.ts main.ts fresh.config.ts fresh.gen.ts routes/index.tsx routes/api/ islands/FengbroCrudApp.tsx lib/workbench.ts",
+    "start": "deno run -A --watch=static/,routes/,islands/,lib/ dev.ts",
     "build": "deno run -A dev.ts build",
-    "preview": "deno run -A main.ts"
+    "preview": "deno run -A main.ts",
+    "test": "deno test -A lib/"
   },
   "imports": {
     "$fresh/": "https://deno.land/x/fresh@1.7.3/",

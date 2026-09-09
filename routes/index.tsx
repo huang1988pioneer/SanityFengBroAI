@@ -1,5 +1,6 @@
 import { Head } from "$fresh/runtime.ts";
 import FengbroCrudApp from "../islands/FengbroCrudApp.tsx";
+import { paperBootScript } from "../lib/workbench.ts";
 
 export default function Home() {
   return (
@@ -10,8 +11,10 @@ export default function Home() {
           name="description"
           content="Deno Fresh 版本的鋒兄 AI CRUD、CSV 匯入匯出與本地資料管理工作台。"
         />
+        <meta name="color-scheme" content="light dark" />
         <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
         <link rel="stylesheet" href="/styles.css" />
+        <script dangerouslySetInnerHTML={{ __html: paperBootScript }} />
       </Head>
       <FengbroCrudApp />
     </>

@@ -1,4 +1,13 @@
 ﻿import { useEffect, useMemo, useRef, useState } from "preact/hooks";
+import {
+  applyDensity,
+  applyTheme,
+  DENSITY_STORAGE_KEY,
+  emptyStateKind,
+  hostLabel,
+  resolveGroupLeaf,
+  THEME_STORAGE_KEY,
+} from "../lib/workbench.ts";
 
 type FieldType = "text" | "number" | "date" | "datetime" | "url" | "boolean" | "textarea" | "password";
 
@@ -105,7 +114,7 @@ const modules: Module[] = [
     label: "鋒兄筆記",
     shortLabel: "筆記",
     icon: "note",
-    description: "Sanity document type: fengbro_notes。文章、筆記、連結與附件欄位。",
+    description: "口袋冊：店名、價格、短句。表格住 Sanity，這一頁不當知識庫。",
     fields: [
       { key: "title", label: "標題" },
       { key: "content", label: "內容", type: "textarea", wide: true },
@@ -222,7 +231,7 @@ const modules: Module[] = [
     label: "鋒兄設定",
     shortLabel: "設定",
     icon: "settings",
-    description: "只保存 Sanity 連線設定到 localStorage；表格資料全部使用 Sanity。",
+    description: "本機鑰匙櫃：專案號、冊頁、寫入令牌只掛在這台瀏覽器。表格仍住 Sanity。",
     fields: [
       { key: "projectId", label: "SANITY_PROJECT_ID" },
       { key: "dataset", label: "SANITY_DATASET" },
@@ -231,7 +240,20 @@ const modules: Module[] = [
     ],
     seed: [],
   },
-  { id: "about", label: "鋒兄關於", shortLabel: "關於", icon: "info", description: "Sanity document type: fengbro_about。專案資訊、版本與備註。", fields: [{ key: "name", label: "名稱" }, { key: "value", label: "內容", type: "textarea", wide: true }], seed: [{ name: "鋒兄 AI Fresh", value: "Deno Fresh 版本，使用 Sanity 保存表格資料，localStorage 僅保存 Sanity 設定。" }] },
+  {
+    id: "about",
+    label: "鋒兄關於",
+    shortLabel: "關於",
+    icon: "info",
+    description: "工作台邊註與版本備忘。Sanity document type: fengbro_about；瀏覽器不保存表格。",
+    fields: [
+      { key: "name", label: "標題" },
+      { key: "value", label: "內容", type: "textarea", wide: true },
+    ],
+    seed: [
+      { name: "鋒兄 AI Fresh", value: "Deno Fresh 冊頁台。表格住在 Sanity，瀏覽器只保管連線鑰匙。" },
+    ],
+  },
 ];
 
 const moduleById = Object.fromEntries(modules.map((module) => [module.id, module]));
@@ -242,6 +264,16 @@ const mediaUploadModules: Record<string, { accept: string; label: string }> = {
   documents: { accept: "*/*", label: "上傳文件" },
   podcast: { accept: "audio/*", label: "上傳播客" },
 };
+
+/** 表格欄位依型別上 class，讓寬度／對齊／換行規則寫在 CSS 而不是散在 JSX。 */
+function columnClass(field: Field): string {
+  if (field.type === "url") return "url-cell col-url";
+  if (field.type === "date") return "col-date";
+  if (field.type === "number") return "col-number";
+  if (field.type === "boolean") return "col-boolean";
+  if (field.type === "textarea") return "col-note";
+  return "col-text";
+}
 
 function createEmptyRow(module: Module): Row {
   return Object.fromEntries(module.fields.map((field) => {
@@ -471,6 +503,15 @@ function Icon({ name }: { name: string }) {
     chart: "M4 19V5M4 19h16M8 16l3-5 4 3 5-8",
     settings: "M12 8a4 4 0 1 0 0 8 4 4 0 0 0 0-8zM4 12H2M22 12h-2M12 4V2M12 22v-2M5 5l-1.5-1.5M20.5 20.5L19 19M19 5l1.5-1.5M3.5 20.5L5 19",
     info: "M12 22a10 10 0 1 0 0-20 10 10 0 0 0 0 20zM12 10v7M12 7h.01",
+    grid: "M4 4h7v7H4zM13 4h7v7h-7zM4 13h7v7H4zM13 13h7v7h-7z",
+    moon: "M21 13a9 9 0 1 1-10-10 7 7 0 0 0 10 10z",
+    sun: "M12 8a4 4 0 1 0 0 8 4 4 0 0 0 0-8zM12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4",
+    close: "M6 6l12 12M18 6L6 18",
+    layers: "M12 3l9 5-9 5-9-5zM3 13l9 5 9-5",
+    eye: "M2 12s4-7 10-7 10 7 10 7-4 7-10 7-10-7-10-7zM12 9a3 3 0 1 0 0 6 3 3 0 0 0 0-6z",
+    hide: "M3 3l18 18M10.6 10.6A3 3 0 0 0 13.4 13.4M6.1 6.1C4 7.6 2.5 9.6 2 12c0 0 4 7 10 7 1.8 0 3.4-.5 4.8-1.3M17.9 17.9C20 16.4 21.5 14.4 22 12c0 0-4-7-10-7-1.2 0-2.3.2-3.3.6",
+    rows: "M4 6h16M4 10h16M4 14h16M4 18h16",
+    spread: "M4 5h16v5H4zM4 14h16v5H4z",
   };
   return (
     <svg viewBox="0 0 24 24" aria-hidden="true">
@@ -487,6 +528,88 @@ const toolTabs = [
 ] as const;
 
 type ToolTabId = typeof toolTabs[number]["id"];
+
+type NavLeaf = {
+  key: string;
+  label: string;
+  short: string;
+  icon: string;
+  moduleId: string;
+  toolId?: ToolTabId;
+};
+
+type NavGroup = {
+  id: string;
+  label: string;
+  short: string;
+  icon: string;
+  children: NavLeaf[];
+};
+
+function moduleLeaf(id: string): NavLeaf {
+  const target = moduleById[id];
+  return {
+    key: id,
+    label: target.shortLabel,
+    short: target.shortLabel,
+    icon: target.icon,
+    moduleId: id,
+  };
+}
+
+const navGroups: NavGroup[] = [
+  {
+    id: "manage",
+    label: "鋒兄管理",
+    short: "管理",
+    icon: "box",
+    children: ["subscription", "food", "notes", "common", "bank", "routine"].map(moduleLeaf),
+  },
+  {
+    id: "media",
+    label: "鋒兄影音",
+    short: "影音",
+    icon: "layers",
+    children: ["images", "videos", "music", "documents", "podcast"].map(moduleLeaf),
+  },
+  {
+    id: "tools",
+    label: "鋒兄工具",
+    short: "工具",
+    icon: "tool",
+    children: toolTabs.map((tab) => ({
+      key: `tool:${tab.id}`,
+      label: tab.label,
+      short: tab.label.replace(/^鋒兄/, ""),
+      icon: tab.icon,
+      moduleId: "tools",
+      toolId: tab.id,
+    })),
+  },
+  {
+    id: "system",
+    label: "鋒兄設定",
+    short: "設定",
+    icon: "settings",
+    children: ["settings", "about"].map(moduleLeaf),
+  },
+];
+
+const navLeaves = navGroups.flatMap((group) => group.children);
+const dockLeaves = ["subscription", "food", "notes", "tool:price"]
+  .map((id) => navLeaves.find((leaf) => leaf.key === id))
+  .filter(Boolean) as NavLeaf[];
+const themeKey = THEME_STORAGE_KEY;
+const densityKey = DENSITY_STORAGE_KEY;
+
+type DensityMode = "comfortable" | "compact";
+type DiagTone = "ok" | "bad" | "mute";
+type DiagRow = { label: string; value: string; tone?: DiagTone };
+type DiagReport = { ok: boolean; rows: DiagRow[] };
+
+function isHung(value: string) {
+  return value.trim().length > 0;
+}
 
 type PriceResult = {
   title: string;
@@ -1117,6 +1240,603 @@ function ToolWorkbench({
   );
 }
 
+function AboutDesk({
+  rows,
+  draft,
+  editingId,
+  loading,
+  message,
+  theme,
+  moduleCount,
+  onDraft,
+  onSave,
+  onEdit,
+  onDelete,
+  onCancel,
+  onReload,
+  onSeed,
+}: {
+  rows: Row[];
+  draft: Row;
+  editingId: string | null;
+  loading: boolean;
+  message: string;
+  theme: "light" | "dark";
+  moduleCount: number;
+  onDraft: (key: string, value: string | number | boolean) => void;
+  onSave: () => void;
+  onEdit: (row: Row) => void;
+  onDelete: (row: Row) => void;
+  onCancel: () => void;
+  onReload: () => void;
+  onSeed: () => void;
+}) {
+  return (
+    <section class="about-desk" aria-label="鋒兄誌">
+      <article class="about-mast">
+        <div class="about-mast-copy">
+          <span class="about-seal" aria-hidden="true"><Icon name="info" /></span>
+          <div>
+            <p class="crumb">誌</p>
+            <h3>鋒兄誌</h3>
+            <p>這份工作台的邊註，不是行銷頁。表格住在 Sanity Content Lake；瀏覽器只保管連線鑰匙。</p>
+          </div>
+        </div>
+        <ul class="about-facts">
+          <li><b>骨架</b><strong>Deno Fresh</strong></li>
+          <li><b>冊頁</b><strong>Sanity</strong></li>
+          <li><b>光線</b><strong>{theme === "dark" ? "夜紙" : "暖紙"}</strong></li>
+          <li><b>葉片</b><strong>{moduleCount} 模組</strong></li>
+        </ul>
+      </article>
+
+      <div class="about-split">
+        <div class="about-ledger">
+          <div class="about-ledger-head">
+            <div>
+              <p class="crumb">紙箋</p>
+              <h4>邊註 {rows.length} 則</h4>
+            </div>
+            <button type="button" class="ghost-button compact" onClick={onReload} disabled={loading}>
+              {loading ? "讀取中..." : "重新載入"}
+            </button>
+          </div>
+          <p class="about-status">{loading ? "正在翻頁..." : message}</p>
+          {rows.length === 0 ? (
+            <div class="about-empty">
+              <strong>還沒有邊註</strong>
+              <span>右側紙墊可以寫第一則。這頁本來就該短，不必做成資料表。</span>
+              <button type="button" class="ghost-button" onClick={onSeed} disabled={loading}>寫入範例邊註</button>
+            </div>
+          ) : (
+            <div class="about-slips">
+              {rows.map((row) => (
+                <article class={String(row.id) === editingId ? "about-slip editing" : "about-slip"}>
+                  <header>
+                    <strong>{String(row.name || "未命名")}</strong>
+                    <div class="about-slip-actions">
+                      <button type="button" onClick={() => onEdit(row)}>改寫</button>
+                      <button type="button" class="danger" onClick={() => onDelete(row)}>抽掉</button>
+                    </div>
+                  </header>
+                  <p>{String(row.value ?? "")}</p>
+                </article>
+              ))}
+            </div>
+          )}
+        </div>
+
+        <form
+          class="about-blotter"
+          onSubmit={(event) => {
+            event.preventDefault();
+            onSave();
+          }}
+        >
+          <div class="about-blotter-head">
+            <div>
+              <p class="crumb">{editingId ? "改寫中" : "新紙"}</p>
+              <h4>{editingId ? "改一則邊註" : "寫一則邊註"}</h4>
+            </div>
+            {editingId ? (
+              <button type="button" class="ghost-button compact" onClick={onCancel}>放下</button>
+            ) : null}
+          </div>
+          <label class="field">
+            <span>標題</span>
+            <input
+              value={String(draft.name ?? "")}
+              onInput={(event) => onDraft("name", event.currentTarget.value)}
+              placeholder="例如：資料落點"
+            />
+          </label>
+          <label class="field wide">
+            <span>內容</span>
+            <textarea
+              value={String(draft.value ?? "")}
+              onInput={(event) => onDraft("value", event.currentTarget.value)}
+              placeholder="短句即可。這不是文件庫。"
+            />
+          </label>
+          <button class="save-button" type="submit" disabled={loading}>
+            {editingId ? "覆寫到 Sanity" : "釘到 Sanity"}
+          </button>
+        </form>
+      </div>
+    </section>
+  );
+}
+
+function formatBytes(value: string | number | boolean | undefined) {
+  const n = Number(value || 0);
+  if (!Number.isFinite(n) || n <= 0) return "";
+  if (n < 1024) return `${Math.round(n)} B`;
+  if (n < 1024 * 1024) return `${(n / 1024).toFixed(1)} KB`;
+  return `${(n / (1024 * 1024)).toFixed(1)} MB`;
+}
+
+function mediaKind(moduleId: string) {
+  if (moduleId === "images") return "frame";
+  if (moduleId === "videos") return "reel";
+  if (moduleId === "documents") return "folio";
+  return "playbill";
+}
+
+function MediaWall({
+  moduleId,
+  shortLabel,
+  rows,
+  filteredRows,
+  query,
+  selectedIds,
+  editingId,
+  loading,
+  message,
+  onQuery,
+  onEdit,
+  onDuplicate,
+  onDelete,
+  onToggle,
+  onDeleteSelected,
+  onExpand,
+  onSeed,
+}: {
+  moduleId: string;
+  shortLabel: string;
+  rows: Row[];
+  filteredRows: Row[];
+  query: string;
+  selectedIds: Set<string>;
+  editingId: string | null;
+  loading: boolean;
+  message: string;
+  onQuery: (value: string) => void;
+  onEdit: (row: Row) => void;
+  onDuplicate: (row: Row) => void;
+  onDelete: (row: Row) => void;
+  onToggle: (id: string) => void;
+  onDeleteSelected: () => void;
+  onExpand?: (url: string) => void;
+  onSeed: () => void;
+}) {
+  const kind = mediaKind(moduleId);
+  const emptyKind = emptyStateKind({ totalRows: rows.length, query });
+  const emptyTitle = moduleId === "images"
+    ? "還沒有貼上圖頁"
+    : moduleId === "videos"
+    ? "卷軸是空的"
+    : moduleId === "documents"
+    ? "夾層裡沒有冊頁"
+    : moduleId === "podcast"
+    ? "還沒有節目"
+    : "還沒有曲目";
+  const emptyHint = "右側壓印可以把第一筆釘到 Sanity。空著的時候不必先攤資料表。";
+
+  return (
+    <div class={`atelier-wall kind-${kind}`}>
+      <div class="panel-toolbar">
+        <div>
+          <h3>{shortLabel}牆</h3>
+          <p>
+            {filteredRows.length} / {rows.length} 件
+            {selectedIds.size > 0 && <span class="selected-badge">　已選 {selectedIds.size} 筆</span>}
+          </p>
+        </div>
+        <div style="display:flex;align-items:center;gap:0.5rem;flex-wrap:wrap;">
+          {selectedIds.size > 0 && (
+            <button type="button" class="danger-button" onClick={onDeleteSelected}>
+              抽掉已選 ({selectedIds.size})
+            </button>
+          )}
+          <label class="search-box">
+            <span>搜尋</span>
+            <input value={query} onInput={(event) => onQuery(event.currentTarget.value)} placeholder="標題、分類、檔名..." />
+          </label>
+        </div>
+      </div>
+      <p class="atelier-status">{loading ? "正在翻頁..." : message}</p>
+      {filteredRows.length === 0 && emptyKind === "no-rows" ? (
+        <div class="ledger-blank empty-no-rows">
+          <strong>{emptyTitle}</strong>
+          <span>{emptyHint}</span>
+          <button type="button" class="ghost-button" onClick={onSeed} disabled={loading}>寫入範例</button>
+        </div>
+      ) : filteredRows.length === 0 ? (
+        <div class="ledger-blank empty-no-search-hits">
+          <strong>這一牆被搜尋濾空了</strong>
+          <span>換個詞，或清掉搜尋欄。</span>
+        </div>
+      ) : (
+        <div class={`atelier-grid kind-${kind}`}>
+          {filteredRows.map((row) => {
+            const id = String(row.id);
+            const title = String(row.title || row.filename || "未命名");
+            const url = String(row.url || "");
+            const checked = selectedIds.has(id);
+            const editing = id === editingId;
+            const meta = [
+              String(row.category || "").trim(),
+              row.date ? String(row.date) : "",
+              formatBytes(row.size),
+            ].filter(Boolean).join(" · ");
+            return (
+              <article key={id} class={`atelier-card${editing ? " editing" : ""}${checked ? " picked" : ""}`}>
+                <div class="atelier-stage">
+                  {url
+                    ? (
+                      <MediaPreview
+                        moduleId={moduleId}
+                        url={url}
+                        compact
+                        onExpand={moduleId === "documents" ? onExpand : undefined}
+                      />
+                    )
+                    : <div class="atelier-missing">沒有連結</div>}
+                </div>
+                <header>
+                  <label class="atelier-pick">
+                    <input type="checkbox" checked={checked} onChange={() => onToggle(id)} />
+                    <strong>{title}</strong>
+                  </label>
+                  {meta ? <span class="atelier-meta">{meta}</span> : null}
+                </header>
+                {row.note ? <p class="atelier-note">{String(row.note)}</p> : null}
+                <div class="atelier-actions">
+                  <button type="button" onClick={() => onEdit(row)}>改寫</button>
+                  <button type="button" onClick={() => onDuplicate(row)}>再印一張</button>
+                  <button type="button" class="danger" onClick={() => onDelete(row)}>抽掉</button>
+                </div>
+              </article>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function noteLinks(row: Row): string[] {
+  return [row.url1, row.url2, row.url3, row.file1]
+    .map((value) => String(value || "").trim())
+    .filter(Boolean);
+}
+
+function NotesFolio({
+  rows,
+  filteredRows,
+  query,
+  selectedIds,
+  editingId,
+  loading,
+  message,
+  onQuery,
+  onEdit,
+  onDuplicate,
+  onDelete,
+  onToggle,
+  onDeleteSelected,
+  onSeed,
+}: {
+  rows: Row[];
+  filteredRows: Row[];
+  query: string;
+  selectedIds: Set<string>;
+  editingId: string | null;
+  loading: boolean;
+  message: string;
+  onQuery: (value: string) => void;
+  onEdit: (row: Row) => void;
+  onDuplicate: (row: Row) => void;
+  onDelete: (row: Row) => void;
+  onToggle: (id: string) => void;
+  onDeleteSelected: () => void;
+  onSeed: () => void;
+}) {
+  return (
+    <div class="folio-book">
+      <div class="panel-toolbar">
+        <div>
+          <h3>口袋冊</h3>
+          <p>
+            {filteredRows.length} / {rows.length} 頁
+            {selectedIds.size > 0 && <span class="selected-badge">　已選 {selectedIds.size} 頁</span>}
+          </p>
+        </div>
+        <div style="display:flex;align-items:center;gap:0.5rem;flex-wrap:wrap;">
+          {selectedIds.size > 0 && (
+            <button type="button" class="danger-button" onClick={onDeleteSelected}>
+              撕掉已選 ({selectedIds.size})
+            </button>
+          )}
+          <label class="search-box">
+            <span>翻找</span>
+            <input
+              value={query}
+              onInput={(event) => onQuery(event.currentTarget.value)}
+              placeholder="標題、內文、店名..."
+            />
+          </label>
+        </div>
+      </div>
+      <p class="folio-status">{loading ? "正在翻頁..." : message}</p>
+      {filteredRows.length === 0 && emptyStateKind({ totalRows: rows.length, query }) === "no-rows" ? (
+        <div class="ledger-blank empty-no-rows">
+          <strong>冊子還是空白</strong>
+          <span>右側寫第一頁。短句即可，不必先攤成資料表。</span>
+          <button type="button" class="ghost-button" onClick={onSeed} disabled={loading}>寫入範例店名</button>
+        </div>
+      ) : filteredRows.length === 0 ? (
+        <div class="ledger-blank empty-no-search-hits">
+          <strong>這幾個字沒寫在任何一頁</strong>
+          <span>換詞，或清掉翻找欄。</span>
+        </div>
+      ) : (
+        <ol class="folio-leaves">
+          {filteredRows.map((row, index) => {
+            const id = String(row.id);
+            const checked = selectedIds.has(id);
+            const editing = id === editingId;
+            const links = noteLinks(row);
+            const date = String(row.newDate || "").slice(0, 10);
+            const category = String(row.category || "").trim();
+            return (
+              <li key={id}>
+                <article class={`folio-leaf${editing ? " editing" : ""}${checked ? " picked" : ""}`}>
+                  <span class="folio-num" aria-hidden="true">{String(index + 1).padStart(2, "0")}</span>
+                  <div class="folio-copy">
+                    <header>
+                      <label class="folio-pick">
+                        <input type="checkbox" checked={checked} onChange={() => onToggle(id)} />
+                        <h4>{String(row.title || "未命名")}</h4>
+                      </label>
+                      <div class="folio-stamps">
+                        {date ? <time>{date}</time> : null}
+                        {category ? <em>{category}</em> : null}
+                      </div>
+                    </header>
+                    <p>{String(row.content || "（空白頁）")}</p>
+                    {links.length > 0 ? (
+                      <div class="folio-tickets">
+                        {links.map((url) => (
+                          <a key={url} href={url} target="_blank" rel="noreferrer" title={url}>
+                            {hostLabel(url)}
+                          </a>
+                        ))}
+                      </div>
+                    ) : null}
+                    <div class="folio-actions">
+                      <button type="button" onClick={() => onEdit(row)}>改寫</button>
+                      <button type="button" onClick={() => onDuplicate(row)}>再抄一頁</button>
+                      <button type="button" class="danger" onClick={() => onDelete(row)}>撕掉</button>
+                    </div>
+                  </div>
+                </article>
+              </li>
+            );
+          })}
+        </ol>
+      )}
+    </div>
+  );
+}
+
+function SettingsCabinet({
+  settings,
+  loading,
+  message,
+  theme,
+  density,
+  diag,
+  showToken,
+  onField,
+  onSave,
+  onTest,
+  onClear,
+  onTheme,
+  onDensity,
+  onToggleToken,
+}: {
+  settings: SanitySettings;
+  loading: boolean;
+  message: string;
+  theme: "light" | "dark";
+  density: DensityMode;
+  diag: DiagReport | null;
+  showToken: boolean;
+  onField: (key: keyof SanitySettings, value: string) => void;
+  onSave: () => void;
+  onTest: () => void;
+  onClear: () => void;
+  onTheme: (next: "light" | "dark") => void;
+  onDensity: (next: DensityMode) => void;
+  onToggleToken: () => void;
+}) {
+  const hooks = [
+    {
+      id: "project",
+      label: "專案號",
+      hung: isHung(settings.projectId),
+      value: isHung(settings.projectId) ? settings.projectId.trim() : "未掛",
+    },
+    {
+      id: "dataset",
+      label: "冊頁",
+      hung: isHung(settings.dataset),
+      value: isHung(settings.dataset) ? settings.dataset.trim() : "未掛",
+    },
+    {
+      id: "token",
+      label: "令牌",
+      hung: isHung(settings.token),
+      value: isHung(settings.token) ? "已掛在本機" : "改用伺服器",
+    },
+    {
+      id: "version",
+      label: "版本戳",
+      hung: isHung(settings.apiVersion),
+      value: isHung(settings.apiVersion) ? settings.apiVersion.trim() : "未掛",
+    },
+  ];
+
+  return (
+    <section class="keys-cabinet" aria-label="鑰匙櫃">
+      <article class="keys-mast">
+        <div class="keys-mast-copy">
+          <span class="keys-seal" aria-hidden="true"><Icon name="key" /></span>
+          <div>
+            <p class="crumb">鑰匙</p>
+            <h3>鑰匙櫃</h3>
+            <p>四把鑰匙掛在這格櫃子。表格仍住 Sanity；空白欄位就沿用伺服器環境變數，不必把令牌寫進部署檔。</p>
+          </div>
+        </div>
+        <ol class="keys-rail">
+          {hooks.map((hook) => (
+            <li key={hook.id} class={hook.hung ? "keys-fob hung" : "keys-fob"}>
+              <b>{hook.label}</b>
+              <strong>{hook.value}</strong>
+              <em>{hook.hung ? "在櫃" : "空鉤"}</em>
+            </li>
+          ))}
+        </ol>
+      </article>
+
+      <div class="keys-split">
+        <form
+          class="keys-drawer"
+          onSubmit={(event) => {
+            event.preventDefault();
+            onSave();
+          }}
+        >
+          <div class="keys-drawer-head">
+            <div>
+              <p class="crumb">掛鉤</p>
+              <h4>本機四把鑰匙</h4>
+            </div>
+            <p class="keys-hint">只寫進 localStorage，不會上傳到 Sanity。</p>
+          </div>
+          <div class="keys-fields">
+            <label class="field">
+              <span>專案號 <i>project id</i></span>
+              <input
+                value={settings.projectId}
+                autocomplete="off"
+                spellcheck={false}
+                placeholder="Sanity 專案短碼"
+                onInput={(event) => onField("projectId", event.currentTarget.value)}
+              />
+            </label>
+            <label class="field">
+              <span>冊頁名 <i>dataset</i></span>
+              <input
+                value={settings.dataset}
+                autocomplete="off"
+                spellcheck={false}
+                placeholder="production"
+                onInput={(event) => onField("dataset", event.currentTarget.value)}
+              />
+            </label>
+            <label class="field wide">
+              <span>寫入令牌 <i>api token</i></span>
+              <div class="keys-secret">
+                <input
+                  type={showToken ? "text" : "password"}
+                  value={settings.token}
+                  autocomplete="off"
+                  spellcheck={false}
+                  placeholder="留空則使用伺服器 token"
+                  onInput={(event) => onField("token", event.currentTarget.value)}
+                />
+                <button
+                  type="button"
+                  class="ghost-button compact"
+                  onClick={onToggleToken}
+                  aria-pressed={showToken}
+                  aria-label={showToken ? "遮住令牌" : "顯示令牌"}
+                >
+                  <Icon name={showToken ? "hide" : "eye"} />
+                  {showToken ? "遮住" : "顯示"}
+                </button>
+              </div>
+            </label>
+            <label class="field">
+              <span>版本戳 <i>api version</i></span>
+              <input
+                value={settings.apiVersion}
+                autocomplete="off"
+                spellcheck={false}
+                placeholder="v2025-02-19"
+                onInput={(event) => onField("apiVersion", event.currentTarget.value)}
+              />
+            </label>
+          </div>
+          <div class="keys-actions">
+            <button class="save-button keys-save" type="submit" disabled={loading}>掛上鑰匙</button>
+            <button class="ghost-button" type="button" onClick={onClear} disabled={loading}>交還伺服器</button>
+          </div>
+        </form>
+
+        <aside class="keys-stamp">
+          <div class="keys-stamp-head">
+            <div>
+              <p class="crumb">驗印</p>
+              <h4>連線戳記</h4>
+            </div>
+            <button type="button" class="ghost-button compact" onClick={onTest} disabled={loading}>
+              {loading ? "蓋印中..." : "蓋一次印"}
+            </button>
+          </div>
+          <p class="keys-status" aria-live="polite">{message}</p>
+          {diag ? (
+            <ul class="keys-ledger">
+              {diag.rows.map((row) => (
+                <li key={row.label} class={row.tone ? `tone-${row.tone}` : undefined}>
+                  <b>{row.label}</b>
+                  <span>{row.value}</span>
+                </li>
+              ))}
+            </ul>
+          ) : (
+            <div class="keys-empty">
+              <strong>還沒蓋印</strong>
+              <span>掛上鑰匙後按一次，確認讀寫是否通。結果只留在這張戳記上。</span>
+            </div>
+          )}
+          <div class="keys-paper" role="group" aria-label="紙面">
+            <p class="crumb">紙面</p>
+            <div class="keys-chips">
+              <button type="button" class={theme === "light" ? "keys-chip on" : "keys-chip"} onClick={() => onTheme("light")}>暖紙</button>
+              <button type="button" class={theme === "dark" ? "keys-chip on" : "keys-chip"} onClick={() => onTheme("dark")}>夜紙</button>
+              <button type="button" class={density === "comfortable" ? "keys-chip on" : "keys-chip"} onClick={() => onDensity("comfortable")}>舒適</button>
+              <button type="button" class={density === "compact" ? "keys-chip on" : "keys-chip"} onClick={() => onDensity("compact")}>緊湊</button>
+            </div>
+          </div>
+        </aside>
+      </div>
+    </section>
+  );
+}
+
 export default function FengbroCrudApp() {
   const [rows, setRows] = useState<Row[]>([]);
   const [settings, setSettings] = useState<SanitySettings>(defaultSettings);
@@ -1127,15 +1847,27 @@ export default function FengbroCrudApp() {
   const [draft, setDraft] = useState<Row>(() => createEmptyRow(modules[0]));
   const [message, setMessage] = useState("請設定 Sanity 或使用環境變數");
   const [loading, setLoading] = useState(false);
+  const [errorText, setErrorText] = useState("");
   const [uploading, setUploading] = useState(false);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [deleteAllModal, setDeleteAllModal] = useState(false);
   const [deleteConfirmText, setDeleteConfirmText] = useState("");
   const [expandedDocumentUrl, setExpandedDocumentUrl] = useState("");
+  const [theme, setTheme] = useState<"light" | "dark">("light");
+  const [density, setDensity] = useState<DensityMode>("comfortable");
+  const [showToken, setShowToken] = useState(false);
+  const [diag, setDiag] = useState<DiagReport | null>(null);
+  const [sheetOpen, setSheetOpen] = useState(false);
+  const [lastLeaf, setLastLeaf] = useState<Record<string, string>>({});
+  const themeMounted = useRef(false);
+  const densityMounted = useRef(false);
   const fileRef = useRef<HTMLInputElement>(null);
   const uploadRef = useRef<HTMLInputElement>(null);
   const activeModule = moduleById[activeId];
   const isSettings = activeId === "settings";
+  const isAbout = activeId === "about";
+  const isNotes = activeId === "notes";
+  const isMedia = previewModuleIds.has(activeId);
   const uploadConfig = mediaUploadModules[activeId];
   const todayLabel = new Intl.DateTimeFormat("zh-TW", {
     month: "long",
@@ -1144,9 +1876,97 @@ export default function FengbroCrudApp() {
     timeZone: "Asia/Taipei",
   }).format(new Date());
 
+  const activeLeafKey = activeId === "tools" ? `tool:${activeTool}` : activeId;
+  const activeGroup = navGroups.find((group) =>
+    group.children.some((leaf) => leaf.key === activeLeafKey)
+  ) ?? navGroups[0];
+  const activeLeaf = navLeaves.find((leaf) => leaf.key === activeLeafKey);
+  const activeTitle = activeLeaf ? activeLeaf.label : activeGroup.label;
+
+  const goLeaf = (leaf: NavLeaf) => {
+    const owner = navGroups.find((group) => group.children.some((child) => child.key === leaf.key));
+    if (owner) setLastLeaf((prev) => ({ ...prev, [owner.id]: leaf.key }));
+    if (leaf.toolId) {
+      setActiveTool(leaf.toolId);
+      setActiveId("tools");
+      return;
+    }
+    setActiveId(leaf.moduleId);
+  };
+
+  const goGroup = (group: NavGroup) => {
+    if (group.id === activeGroup.id) return;
+    goLeaf(resolveGroupLeaf(group, lastLeaf));
+  };
+
+  const toggleTheme = () => setTheme((prev) => (prev === "dark" ? "light" : "dark"));
+  const toggleDensity = () => setDensity((prev) => (prev === "compact" ? "comfortable" : "compact"));
+
+  useEffect(() => {
+    let initial: "light" | "dark" = "light";
+    try {
+      const saved = localStorage.getItem(themeKey);
+      if (saved === "dark" || saved === "light") initial = saved;
+      else if (globalThis.matchMedia("(prefers-color-scheme: dark)").matches) initial = "dark";
+    } catch { /* ignore */ }
+    applyTheme(document.documentElement, initial);
+    themeMounted.current = true;
+    setTheme(initial);
+  }, []);
+
+  useEffect(() => {
+    if (!themeMounted.current) return;
+    applyTheme(document.documentElement, theme);
+    try {
+      localStorage.setItem(themeKey, theme);
+    } catch { /* ignore */ }
+  }, [theme]);
+
+  useEffect(() => {
+    let initial: DensityMode = "comfortable";
+    try {
+      if (localStorage.getItem(densityKey) === "compact") initial = "compact";
+    } catch { /* ignore */ }
+    applyDensity(document.documentElement, initial);
+    densityMounted.current = true;
+    setDensity(initial);
+  }, []);
+
+  useEffect(() => {
+    if (!densityMounted.current) return;
+    applyDensity(document.documentElement, density);
+    try {
+      if (density === "compact") localStorage.setItem(densityKey, "compact");
+      else localStorage.removeItem(densityKey);
+    } catch { /* ignore */ }
+  }, [density]);
+
+  useEffect(() => {
+    if (!sheetOpen) return;
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") setSheetOpen(false);
+    };
+    document.addEventListener("keydown", onKeyDown);
+    const previous = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => {
+      document.removeEventListener("keydown", onKeyDown);
+      document.body.style.overflow = previous;
+    };
+  }, [sheetOpen]);
+
+  // 失敗訊息本來跟成功訊息共用 message，兩者長得一模一樣，寫入失敗很容易被當成寫入成功。
+  // 這裡讓錯誤走自己的通道，才能在表單旁邊用警示樣式獨立呈現。
+  const fail = (error: unknown, fallback: string) => {
+    const text = error instanceof Error ? error.message : fallback;
+    setMessage(text);
+    setErrorText(text);
+  };
+
   const loadRows = async (moduleId = activeId, nextSettings = settings) => {
     if (moduleId === "settings") return;
     setLoading(true);
+    setErrorText("");
     try {
       const response = await fetch(`/api/sanity/${moduleId}`, {
         headers: authHeaders(nextSettings),
@@ -1158,7 +1978,7 @@ export default function FengbroCrudApp() {
       setMessage(data.error || `已從 Sanity 載入 ${data.rows?.length ?? 0} 筆${typeHint}`);
     } catch (error) {
       setRows([]);
-      setMessage(error instanceof Error ? error.message : "Sanity 讀取失敗");
+      fail(error, "Sanity 讀取失敗");
     } finally {
       setLoading(false);
     }
@@ -1178,7 +1998,7 @@ export default function FengbroCrudApp() {
     setExpandedDocumentUrl("");
     if (isSettings) {
       setRows([]);
-      setMessage("localStorage 僅保存 Sanity 連線設定");
+      setMessage("鑰匙只掛在這台瀏覽器");
     } else {
       void loadRows(activeId);
     }
@@ -1189,12 +2009,15 @@ export default function FengbroCrudApp() {
     if (!normalized) return rows;
     return rows.filter((row) => Object.values(row).some((value) => String(value).toLowerCase().includes(normalized)));
   }, [query, rows]);
+  const listEmptyKind = emptyStateKind({ totalRows: rows.length, query });
 
   const stats = useMemo(() => {
     const total = rows.length;
     const money = rows.reduce((sum, row) => sum + Number(row.price ?? row.deposit ?? 0), 0);
     const boolCount = rows.filter((row) => row.continue === true).length;
-    return { total, money, boolCount };
+    const categories = new Set(rows.map((row) => String(row.category || "").trim()).filter(Boolean)).size;
+    const linked = rows.filter((row) => noteLinks(row).length > 0).length;
+    return { total, money, boolCount, categories, linked };
   }, [rows]);
 
   const updateDraft = (key: string, value: string | number | boolean) => {
@@ -1204,6 +2027,7 @@ export default function FengbroCrudApp() {
   const saveDraft = async () => {
     const payload = stripSystemFields({ ...createEmptyRow(activeModule), ...draft });
     setLoading(true);
+    setErrorText("");
     try {
       const response = await fetch(`/api/sanity/${activeId}`, {
         method: editingId ? "PUT" : "POST",
@@ -1218,7 +2042,7 @@ export default function FengbroCrudApp() {
       setDraft(createEmptyRow(activeModule));
       await loadRows();
     } catch (error) {
-      setMessage(error instanceof Error ? error.message : "Sanity 寫入失敗");
+      fail(error, "Sanity 寫入失敗");
     } finally {
       setLoading(false);
     }
@@ -1234,6 +2058,7 @@ export default function FengbroCrudApp() {
     const name = String(row.name ?? row.title ?? row.id);
     if (!confirm(`刪除「${name}」？`)) return;
     setLoading(true);
+    setErrorText("");
     try {
       const response = await fetch(`/api/sanity/${activeId}`, {
         method: "DELETE",
@@ -1245,7 +2070,7 @@ export default function FengbroCrudApp() {
       setMessage("已刪除 Sanity 文件");
       await loadRows();
     } catch (error) {
-      setMessage(error instanceof Error ? error.message : "Sanity 刪除失敗");
+      fail(error, "Sanity 刪除失敗");
     } finally {
       setLoading(false);
     }
@@ -1310,6 +2135,7 @@ export default function FengbroCrudApp() {
     }
     setDeleteAllModal(false);
     setLoading(true);
+    setErrorText("");
     const ids = Array.from(selectedIds);
     let deleted = 0;
     for (const id of ids) {
@@ -1335,6 +2161,7 @@ export default function FengbroCrudApp() {
       return;
     }
     setLoading(true);
+    setErrorText("");
     try {
       const response = await fetch(`/api/sanity/${activeId}`, {
         method: "POST",
@@ -1347,7 +2174,7 @@ export default function FengbroCrudApp() {
       setMessage(`${label}：已匯入 ${imported.length} 筆到 Sanity${typeHint}`);
       await loadRows();
     } catch (error) {
-      setMessage(error instanceof Error ? error.message : "Sanity 匯入失敗");
+      fail(error, "Sanity 匯入失敗");
     } finally {
       setLoading(false);
     }
@@ -1390,7 +2217,7 @@ export default function FengbroCrudApp() {
       updateDraft("size", Number(data.asset?.size || file.size || 0));
       setMessage(`已上傳 ${file.name} 到 Sanity Assets`);
     } catch (error) {
-      setMessage(error instanceof Error ? error.message : "Sanity 上傳失敗");
+      fail(error, "Sanity 上傳失敗");
     } finally {
       setUploading(false);
       input.value = "";
@@ -1399,42 +2226,65 @@ export default function FengbroCrudApp() {
 
   const saveSettings = () => {
     localStorage.setItem(settingsKey, JSON.stringify(settings));
-    setMessage("已保存 Sanity 設定到 localStorage");
+    setMessage("鑰匙已掛上本機");
     void loadRows("subscription", settings);
   };
 
-  const [diagResult, setDiagResult] = useState<string | null>(null);
+  const clearSettings = () => {
+    try {
+      localStorage.removeItem(settingsKey);
+    } catch { /* ignore */ }
+    setSettings(defaultSettings);
+    setDiag(null);
+    setShowToken(false);
+    setMessage("已交還，改用伺服器環境變數");
+  };
 
   const testConnection = async () => {
     setLoading(true);
-    setDiagResult(null);
+    setErrorText("");
     try {
       const response = await fetch(`/api/sanity/subscription`, {
         method: "PATCH",
         headers: authHeaders(settings),
       });
       const data = await response.json();
-      const lines: string[] = [];
       const info = data.info || {};
-      lines.push(`狀態: ${data.ok ? "✅ 連線正常" : "❌ 連線失敗"}`);
-      lines.push(`projectId: ${info.projectId}`);
-      lines.push(`dataset: ${info.dataset}`);
-      lines.push(`apiVersion: ${info.apiVersion}`);
-      if (Array.isArray(info.typeAliases)) lines.push(`typeAliases: ${info.typeAliases.join(", ")}`);
-      lines.push(`hasToken: ${info.hasToken ? "是" : "否"}`);
-      lines.push(`tokenPrefix: ${info.tokenPrefix}`);
-      if (info.readOk !== undefined) lines.push(`讀取測試: ${info.readOk ? "✅ 成功" : "❌ 失敗"}`);
-      if (Array.isArray(info.readByType) && info.readByType.length > 0) {
-        lines.push(`現有文件: ${info.readByType.map((item: { type: string; count: number }) => `${item.type}=${item.count}`).join(", ")}`);
+      const rows: DiagRow[] = [
+        { label: "連線", value: data.ok ? "通過" : "失敗", tone: data.ok ? "ok" : "bad" },
+        { label: "專案號", value: String(info.projectId || "—"), tone: info.projectId ? "mute" : "bad" },
+        { label: "冊頁", value: String(info.dataset || "—"), tone: info.dataset ? "mute" : "bad" },
+        { label: "版本戳", value: String(info.apiVersion || "—"), tone: "mute" },
+        { label: "令牌", value: info.hasToken ? "伺服器或本機已備妥" : "沒有令牌", tone: info.hasToken ? "ok" : "bad" },
+      ];
+      if (info.tokenPrefix) rows.push({ label: "令牌前綴", value: String(info.tokenPrefix), tone: "mute" });
+      if (Array.isArray(info.typeAliases) && info.typeAliases.length > 0) {
+        rows.push({ label: "型別別名", value: info.typeAliases.join("、"), tone: "mute" });
       }
-      if (info.writeOk !== undefined) lines.push(`寫入測試: ${info.writeOk ? "✅ 成功" : "❌ 失敗"}`);
-      if (info.cleanupOk !== undefined) lines.push(`清理測試: ${info.cleanupOk ? "✅ 成功" : "❌ 失敗"}`);
-      if (data.error || info.error) lines.push(`錯誤: ${data.error || info.error}`);
-      setDiagResult(lines.join("\n"));
-      setMessage(data.ok ? "Sanity 連線診斷通過" : `Sanity 診斷失敗：${data.error || info.error}`);
+      if (info.readOk !== undefined) {
+        rows.push({ label: "讀取", value: info.readOk ? "成功" : "失敗", tone: info.readOk ? "ok" : "bad" });
+      }
+      if (Array.isArray(info.readByType) && info.readByType.length > 0) {
+        rows.push({
+          label: "現有文件",
+          value: info.readByType.map((item: { type: string; count: number }) => `${item.type} ${item.count}`).join(" · "),
+          tone: "mute",
+        });
+      }
+      if (info.writeOk !== undefined) {
+        rows.push({ label: "寫入", value: info.writeOk ? "成功" : "失敗", tone: info.writeOk ? "ok" : "bad" });
+      }
+      if (info.cleanupOk !== undefined) {
+        rows.push({ label: "清理", value: info.cleanupOk ? "成功" : "失敗", tone: info.cleanupOk ? "ok" : "bad" });
+      }
+      if (data.error || info.error) {
+        rows.push({ label: "錯誤", value: String(data.error || info.error), tone: "bad" });
+      }
+      setDiag({ ok: Boolean(data.ok), rows });
+      setMessage(data.ok ? "戳記通過，讀寫可通" : `蓋印失敗：${data.error || info.error || "未知原因"}`);
     } catch (error) {
       const msg = error instanceof Error ? error.message : "診斷請求失敗";
-      setDiagResult(`❌ 請求失敗：${msg}`);
+      setDiag({ ok: false, rows: [{ label: "請求", value: msg, tone: "bad" }] });
       setMessage(msg);
     } finally {
       setLoading(false);
@@ -1443,76 +2293,153 @@ export default function FengbroCrudApp() {
 
   return (
     <div class="app-shell">
-      <aside class="sidebar">
-        <div class="brand">
-          <div class="brand-mark">⌘</div>
-          <div>
-            <p>FENGBRO</p>
-            <h1>AI Appwrite Console</h1>
-          </div>
+      {/* 平板：左側圖示軌 */}
+      <aside class="rail" aria-label="模組導覽">
+        <div class="rail-head">
+          <div class="brand-mark">鋒</div>
         </div>
-        <div class="design-mode">
-          <Icon name="chart" />
-          <div>
-            <span>DESIGN MODE</span>
-            <strong>Impeccable 2026</strong>
-          </div>
-        </div>
-        <nav class="nav-list" aria-label="主選單">
-          {modules.map((module) => (
-            <div class="nav-group">
-              <button
-                type="button"
-                class={module.id === activeId ? "nav-item active" : "nav-item"}
-                onClick={() => setActiveId(module.id)}
-              >
-                <span class="nav-icon"><Icon name={module.icon} /></span>
-                <span>{module.label}</span>
-                <span class="nav-count">{module.id === activeId && !isSettings ? rows.length : ""}</span>
-              </button>
-              {module.id === "tools" && activeId === "tools" && (
-                <div class="nav-sublist" aria-label="鋒兄工具子項目">
-                  {toolTabs.map((tab) => (
-                    <button
-                      type="button"
-                      class={activeTool === tab.id ? "nav-subitem active" : "nav-subitem"}
-                      onClick={() => setActiveTool(tab.id)}
-                    >
-                      <span class="nav-icon"><Icon name={tab.icon} /></span>
-                      <span>{tab.label}</span>
-                    </button>
-                  ))}
-                </div>
-              )}
-            </div>
+        <nav class="rail-nav" aria-label="主要導覽">
+          {navGroups.map((group) => (
+            <button
+              key={group.id}
+              type="button"
+              title={group.label}
+              aria-current={group.id === activeGroup.id ? "page" : undefined}
+              class={group.id === activeGroup.id ? "rail-item active" : "rail-item"}
+              onClick={() => goGroup(group)}
+            >
+              <Icon name={group.icon} />
+              <span>{group.short}</span>
+            </button>
           ))}
         </nav>
-        <div class="workspace-card">
-          <strong>Unified Household Workspace</strong>
-          <p>訂閱、銀行、日常、影音、文件與媒體集中在一個鋒兄一致的介面裡。</p>
+        <div class="rail-foot">
+          <button
+            type="button"
+            class={density === "compact" ? "rail-item active" : "rail-item"}
+            title={density === "compact" ? "切換為舒適密度" : "切換為緊湊密度"}
+            aria-pressed={density === "compact"}
+            onClick={toggleDensity}
+          >
+            <Icon name={density === "compact" ? "spread" : "rows"} />
+            <span>{density === "compact" ? "緊湊" : "舒適"}</span>
+          </button>
+          <button type="button" class="rail-item" title="全部模組" onClick={() => setSheetOpen(true)}>
+            <Icon name="grid" />
+            <span>全部</span>
+          </button>
         </div>
       </aside>
 
-      <main class={`workspace module-${activeId}`}>
+      <div class="app-main">
+        {/* 桌面：上方雙列導覽 */}
+        <header class="topnav">
+          <div class="topnav-row">
+            <div class="brand">
+              <div class="brand-mark">鋒</div>
+              <div class="brand-text">
+                <p>鋒兄工作台</p>
+                <h1>{activeTitle}</h1>
+              </div>
+            </div>
+
+            <nav class="nav-primary" aria-label="主要導覽">
+              {navGroups.map((group) => (
+                <button
+                  key={group.id}
+                  type="button"
+                  aria-current={group.id === activeGroup.id ? "page" : undefined}
+                  class={group.id === activeGroup.id ? "nav-tab active" : "nav-tab"}
+                  onClick={() => goGroup(group)}
+                >
+                  <Icon name={group.icon} />
+                  <span>{group.label}</span>
+                </button>
+              ))}
+            </nav>
+
+            <div class="mode-cluster">
+              <button
+                type="button"
+                class="mode-button"
+                onClick={toggleTheme}
+                title={theme === "dark" ? "切換為暖紙" : "切換為夜紙"}
+                aria-label={theme === "dark" ? "切換為暖紙" : "切換為夜紙"}
+              >
+                <Icon name={theme === "dark" ? "sun" : "moon"} />
+              </button>
+              <button
+                type="button"
+                class={density === "compact" ? "mode-button on" : "mode-button"}
+                onClick={toggleDensity}
+                title={density === "compact" ? "切換為舒適密度" : "切換為緊湊密度"}
+                aria-pressed={density === "compact"}
+                aria-label={density === "compact" ? "切換為舒適密度" : "切換為緊湊密度"}
+              >
+                <Icon name={density === "compact" ? "spread" : "rows"} />
+              </button>
+              <div class="mode-meta">
+                <span>{theme === "dark" ? "夜紙" : "暖紙"}</span>
+                <strong>{density === "compact" ? "緊湊" : "舒適"}</strong>
+              </div>
+            </div>
+
+            <button
+              type="button"
+              class="menu-button"
+              aria-label="全部模組"
+              aria-expanded={sheetOpen}
+              onClick={() => setSheetOpen(true)}
+            >
+              <Icon name="grid" />
+            </button>
+          </div>
+
+          <div class="subnav-row">
+            <nav class="nav-sub" aria-label="子導覽">
+              {activeGroup.children.map((leaf) => {
+                const isActive = leaf.key === activeLeafKey;
+                return (
+                  <button
+                    key={leaf.key}
+                    type="button"
+                    aria-current={isActive ? "page" : undefined}
+                    class={isActive ? "nav-subtab active" : "nav-subtab"}
+                    onClick={() => goLeaf(leaf)}
+                  >
+                    <Icon name={leaf.icon} />
+                    <span>{leaf.label}</span>
+                    {isActive && !leaf.toolId && leaf.moduleId !== "settings" && (
+                      <span class="nav-count">{rows.length}</span>
+                    )}
+                  </button>
+                );
+              })}
+            </nav>
+          </div>
+        </header>
+
+        <main class={`workspace module-${activeId}`}>
         <header class="surface-bar">
           <div>
-            <span>ACTIVE SURFACE</span>
+            <span>目前模組</span>
             <strong>{activeId === "tools" ? toolTabs.find((tab) => tab.id === activeTool)?.label : activeModule.shortLabel}</strong>
           </div>
           <div class="surface-pills">
-            <span><b>TODAY</b>{todayLabel}</span>
-            <span><b>MODULES</b>{modules.length} 個模組</span>
+            <span><b>今天</b>{todayLabel}</span>
+            <span><b>模組</b>{modules.length} 個</span>
+            <span><b>紙面</b>{theme === "dark" ? "夜紙" : "暖紙"} · {density === "compact" ? "緊湊" : "舒適"}</span>
           </div>
         </header>
 
         <section class="console-card">
         <header class="topbar">
           <div>
-            <p class="crumb">CONSOLE VIEW</p>
-            <h2>{activeId === "tools" ? "鋒兄工具" : activeModule.label}</h2>
+            <p class="crumb">{isAbout ? "誌" : isSettings ? "鑰匙" : isNotes ? "口袋" : "冊頁台"}</p>
+            <h2>{activeId === "tools" ? "鋒兄工具" : isAbout ? "鋒兄誌" : isSettings ? "鑰匙櫃" : isNotes ? "口袋冊" : activeModule.label}</h2>
             <p>{activeModule.description}</p>
           </div>
-          {!isSettings && activeId !== "tools" && (
+          {!isSettings && !isAbout && activeId !== "tools" && (
             <div class="top-actions">
               <button type="button" class="ghost-button" onClick={() => void loadRows()}>重新載入</button>
               <button type="button" class="ghost-button" onClick={() => void importRows(activeModule.seed, "範例資料")}>匯入範例</button>
@@ -1524,53 +2451,106 @@ export default function FengbroCrudApp() {
         </header>
 
         {isSettings ? (
-          <section class="settings-panel">
-            <div class="table-panel">
-              <div class="panel-toolbar">
-                <div>
-                  <h3>Sanity 連線設定</h3>
-                  <p>會保存在瀏覽器 localStorage。若留空，Fresh API 會使用伺服器環境變數。</p>
-                </div>
-              </div>
-              <div class="form-grid settings-grid">
-                <label class="field">
-                  <span>SANITY_PROJECT_ID</span>
-                  <input value={settings.projectId} onInput={(event) => setSettings({ ...settings, projectId: event.currentTarget.value })} />
-                </label>
-                <label class="field">
-                  <span>SANITY_DATASET</span>
-                  <input value={settings.dataset} onInput={(event) => setSettings({ ...settings, dataset: event.currentTarget.value })} />
-                </label>
-                <label class="field wide">
-                  <span>SANITY_API_TOKEN</span>
-                  <input type="password" value={settings.token} onInput={(event) => setSettings({ ...settings, token: event.currentTarget.value })} />
-                </label>
-                <label class="field">
-                  <span>SANITY_API_VERSION</span>
-                  <input value={settings.apiVersion} onInput={(event) => setSettings({ ...settings, apiVersion: event.currentTarget.value })} />
-                </label>
-              </div>
-              <div style="display:flex;gap:0.75rem;flex-wrap:wrap;margin-top:1rem;">
-                <button class="save-button settings-save" type="button" onClick={saveSettings}>保存設定</button>
-                <button class="ghost-button" type="button" onClick={() => void testConnection()} disabled={loading}>🔍 測試 Sanity 連線</button>
-              </div>
-              {diagResult && (
-                <pre style="margin-top:1rem;padding:1rem;background:var(--surface2,#1e1e2e);border-radius:0.5rem;font-size:0.78rem;line-height:1.7;white-space:pre-wrap;color:var(--text1,#cdd6f4);border:1px solid var(--border,#313244);">{diagResult}</pre>
-              )}
-            </div>
-          </section>
+          <SettingsCabinet
+            settings={settings}
+            loading={loading}
+            message={message}
+            theme={theme}
+            density={density}
+            diag={diag}
+            showToken={showToken}
+            onField={(key, value) => setSettings({ ...settings, [key]: value })}
+            onSave={saveSettings}
+            onTest={() => void testConnection()}
+            onClear={clearSettings}
+            onTheme={setTheme}
+            onDensity={setDensity}
+            onToggleToken={() => setShowToken((prev) => !prev)}
+          />
         ) : activeId === "tools" ? (
           <ToolWorkbench activeTool={activeTool} setActiveTool={setActiveTool} />
+        ) : isAbout ? (
+          <AboutDesk
+            rows={rows}
+            draft={draft}
+            editingId={editingId}
+            loading={loading}
+            message={message}
+            theme={theme}
+            moduleCount={modules.length}
+            onDraft={updateDraft}
+            onSave={() => void saveDraft()}
+            onEdit={editRow}
+            onDelete={(row) => void deleteRow(row)}
+            onCancel={() => {
+              setEditingId(null);
+              setDraft(createEmptyRow(activeModule));
+            }}
+            onReload={() => void loadRows()}
+            onSeed={() => void importRows(activeModule.seed, "範例資料")}
+          />
         ) : (
           <>
-            <section class="metric-row" aria-label="資料概況">
-              <div class="metric"><span>Sanity 筆數</span><strong>{stats.total}</strong></div>
-              <div class="metric"><span>金額合計</span><strong>{stats.money.toLocaleString("zh-TW")}</strong></div>
-              <div class="metric"><span>續訂中</span><strong>{stats.boolCount}</strong></div>
-              <div class="metric status"><span>狀態</span><strong style="display:flex;align-items:center;gap:6px;">{loading && <span class="spinner" aria-hidden="true" />}{message}</strong></div>
+            <section class="metric-row" aria-label={isMedia ? "媒體概況" : isNotes ? "冊頁概況" : "資料概況"}>
+              <div class="metric"><span>{isMedia ? "件數" : isNotes ? "頁數" : "Sanity 筆數"}</span><strong>{stats.total}</strong></div>
+              {isMedia ? (
+                <div class="metric"><span>分類</span><strong>{stats.categories}</strong></div>
+              ) : isNotes ? (
+                <>
+                  <div class="metric"><span>有連結</span><strong>{stats.linked}</strong></div>
+                  <div class="metric"><span>分類</span><strong>{stats.categories}</strong></div>
+                </>
+              ) : (
+                <>
+                  <div class="metric"><span>金額合計</span><strong>{stats.money.toLocaleString("zh-TW")}</strong></div>
+                  <div class="metric"><span>續訂中</span><strong>{stats.boolCount}</strong></div>
+                </>
+              )}
+              <div class={errorText ? "metric status has-error" : "metric status"}>
+                <span>狀態</span>
+                <strong style="display:flex;align-items:center;gap:6px;">{loading && <span class="spinner" aria-hidden="true" />}{message}</strong>
+              </div>
             </section>
 
-            <section class="content-grid">
+            <section class={`content-grid${isMedia ? " atelier-layout" : isNotes ? " folio-layout" : ""}`}>
+              {isMedia ? (
+                <MediaWall
+                  moduleId={activeId}
+                  shortLabel={activeModule.shortLabel}
+                  rows={rows}
+                  filteredRows={filteredRows}
+                  query={query}
+                  selectedIds={selectedIds}
+                  editingId={editingId}
+                  loading={loading}
+                  message={message}
+                  onQuery={setQuery}
+                  onEdit={editRow}
+                  onDuplicate={(row) => void duplicateRow(row)}
+                  onDelete={(row) => void deleteRow(row)}
+                  onToggle={toggleSelect}
+                  onDeleteSelected={openDeleteSelected}
+                  onExpand={setExpandedDocumentUrl}
+                  onSeed={() => void importRows(activeModule.seed, "範例資料")}
+                />
+              ) : isNotes ? (
+                <NotesFolio
+                  rows={rows}
+                  filteredRows={filteredRows}
+                  query={query}
+                  selectedIds={selectedIds}
+                  editingId={editingId}
+                  loading={loading}
+                  message={message}
+                  onQuery={setQuery}
+                  onEdit={editRow}
+                  onDuplicate={(row) => void duplicateRow(row)}
+                  onDelete={(row) => void deleteRow(row)}
+                  onToggle={toggleSelect}
+                  onDeleteSelected={openDeleteSelected}
+                  onSeed={() => void importRows(activeModule.seed, "範例資料")}
+                />
+              ) : (
               <div class="table-panel">
                 <div class="panel-toolbar">
                   <div>
@@ -1583,6 +2563,14 @@ export default function FengbroCrudApp() {
                         🗑 刪除已選 ({selectedIds.size})
                       </button>
                     )}
+                    <label class="select-all-mobile">
+                      <input
+                        type="checkbox"
+                        checked={allFilteredSelected}
+                        onChange={toggleSelectAll}
+                      />
+                      <span>{allFilteredSelected ? "取消全選" : "全選"}</span>
+                    </label>
                     <label class="search-box">
                       <span>搜尋</span>
                       <input value={query} onInput={(event) => setQuery(event.currentTarget.value)} placeholder="名稱、備註、帳號..." />
@@ -1601,7 +2589,7 @@ export default function FengbroCrudApp() {
                             title={allFilteredSelected ? "取消全選" : "全選"}
                           />
                         </th>
-                        {activeModule.fields.slice(0, 6).map((field) => <th>{field.label}</th>)}
+                        {activeModule.fields.slice(0, 6).map((field) => <th class={columnClass(field)}>{field.label}</th>)}
                         <th class="action-col">操作</th>
                       </tr>
                     </thead>
@@ -1619,7 +2607,7 @@ export default function FengbroCrudApp() {
                               />
                             </td>
                             {activeModule.fields.slice(0, 6).map((field) => (
-                              <td class={field.type === "url" ? "url-cell" : ""}>
+                              <td class={columnClass(field)} data-label={field.label}>
                                 {field.type === "url" && row[field.key]
                                   ? (
                                     <div class="media-cell">
@@ -1629,7 +2617,14 @@ export default function FengbroCrudApp() {
                                         compact
                                         onExpand={activeId === "documents" ? setExpandedDocumentUrl : undefined}
                                       />
-                                      <a href={String(row[field.key])} target="_blank" rel="noreferrer">{String(row[field.key])}</a>
+                                      <a
+                                        href={String(row[field.key])}
+                                        target="_blank"
+                                        rel="noreferrer"
+                                        title={String(row[field.key])}
+                                      >
+                                        {hostLabel(String(row[field.key]))}
+                                      </a>
                                     </div>
                                   )
                                   : field.type === "boolean"
@@ -1645,24 +2640,55 @@ export default function FengbroCrudApp() {
                           </tr>
                         );
                       })}
-                      {filteredRows.length === 0 && (
+                      {loading && filteredRows.length === 0 && [0, 1, 2, 3, 4].map((n) => (
+                        <tr class="skeleton-row" aria-hidden="true" key={n}>
+                          <td class="check-col"><span class="skeleton-bar" /></td>
+                          {activeModule.fields.slice(0, 6).map((field) => (
+                            <td class={columnClass(field)} data-label={field.label}><span class="skeleton-bar" /></td>
+                          ))}
+                          <td class="row-actions"><span class="skeleton-bar" /></td>
+                        </tr>
+                      ))}
+                      {!loading && filteredRows.length === 0 && (
                         <tr>
-                          <td colSpan={activeModule.fields.slice(0, 6).length + 2} class="empty-cell">沒有符合的 Sanity 資料</td>
+                          <td colSpan={activeModule.fields.slice(0, 6).length + 2} class="empty-cell">
+                            <div class={`empty-state empty-${listEmptyKind}`}>
+                              <span class="empty-icon"><Icon name={activeModule.icon} /></span>
+                              <strong>
+                                {listEmptyKind === "no-search-hits" ? "沒有符合搜尋的資料" : `${activeModule.shortLabel}還沒有資料`}
+                              </strong>
+                              <p>
+                                {listEmptyKind === "no-search-hits"
+                                  ? `「${query.trim()}」在 ${rows.length} 筆裡找不到相符的內容，換個關鍵字或清空搜尋。`
+                                  : "用右側表單新增第一筆，或按上方「匯入範例」帶入預設資料。"}
+                              </p>
+                              {listEmptyKind === "no-search-hits" && (
+                                <button type="button" class="ghost-button compact" onClick={() => setQuery("")}>清空搜尋</button>
+                              )}
+                            </div>
+                          </td>
                         </tr>
                       )}
                     </tbody>
                   </table>
                 </div>
               </div>
+              )}
 
               <form class="editor-panel" onSubmit={(event) => { event.preventDefault(); void saveDraft(); }}>
                 <div class="editor-head">
                   <div>
-                    <h3>{editingId ? "編輯項目" : "新增項目"}</h3>
-                    <p>{activeModule.label}</p>
+                    <h3>{isNotes ? (editingId ? "改這一頁" : "寫一頁") : editingId ? "編輯項目" : "新增項目"}</h3>
+                    <p>{isNotes ? "釘在口袋冊右側" : activeModule.label}</p>
                   </div>
                   {editingId && <button type="button" class="ghost-button compact" onClick={() => { setEditingId(null); setDraft(createEmptyRow(activeModule)); }}>取消</button>}
                 </div>
+                {errorText && (
+                  <p class="form-alert" role="alert">
+                    <span class="form-alert-icon" aria-hidden="true">!</span>
+                    {errorText}
+                  </p>
+                )}
                 <div class="form-grid">
                   {activeModule.fields.map((field) => (
                     <label class={field.wide ? "field wide" : "field"}>
@@ -1712,13 +2738,83 @@ export default function FengbroCrudApp() {
                     <p>檔案會上傳到 Sanity Assets，成功後自動填入「連結」欄位。</p>
                   </div>
                 )}
-                <button class="save-button" type="submit" disabled={loading}>{editingId ? "儲存到 Sanity" : "建立 Sanity 文件"}</button>
+                <button class="save-button" type="submit" disabled={loading}>
+                  {isNotes ? (editingId ? "覆寫這一頁" : "釘進冊裡") : editingId ? "儲存到 Sanity" : "建立 Sanity 文件"}
+                </button>
               </form>
             </section>
           </>
         )}
         </section>
-      </main>
+        </main>
+
+        {/* 手機：底部快捷列 */}
+        <nav class="bottom-nav" aria-label="手機快捷選單">
+          <div class="bottom-nav-inner">
+            {dockLeaves.map((leaf) => {
+              const isActive = leaf.key === activeLeafKey;
+              return (
+                <button
+                  key={leaf.key}
+                  type="button"
+                  aria-current={isActive ? "page" : undefined}
+                  class={isActive ? "dock-item active" : "dock-item"}
+                  onClick={() => goLeaf(leaf)}
+                >
+                  <span class="dock-icon"><Icon name={leaf.icon} /></span>
+                  <span>{leaf.short}</span>
+                </button>
+              );
+            })}
+            <button
+              type="button"
+              class={sheetOpen ? "dock-item active" : "dock-item"}
+              aria-label="更多模組"
+              onClick={() => setSheetOpen(true)}
+            >
+              <span class="dock-icon"><Icon name="grid" /></span>
+              <span>更多</span>
+            </button>
+          </div>
+        </nav>
+      </div>
+
+      {sheetOpen && (
+        <div class="sheet-overlay">
+          <button type="button" class="sheet-scrim" aria-label="關閉選單" onClick={() => setSheetOpen(false)} />
+          <aside class="sheet" role="dialog" aria-modal="true" aria-label="全部模組">
+            <div class="sheet-grip" aria-hidden="true" />
+            <div class="sheet-head">
+              <p>全部模組</p>
+              <button type="button" class="mode-button" aria-label="關閉選單" onClick={() => setSheetOpen(false)}>
+                <Icon name="close" />
+              </button>
+            </div>
+            <div class="sheet-body">
+              <div class="sheet-grid">
+                {navLeaves.map((leaf) => {
+                  const isActive = leaf.key === activeLeafKey;
+                  return (
+                    <button
+                      key={leaf.key}
+                      type="button"
+                      aria-current={isActive ? "page" : undefined}
+                      class={isActive ? "sheet-tile active" : "sheet-tile"}
+                      onClick={() => {
+                        goLeaf(leaf);
+                        setSheetOpen(false);
+                      }}
+                    >
+                      <span class="sheet-tile-icon"><Icon name={leaf.icon} /></span>
+                      <span>{leaf.label}</span>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          </aside>
+        </div>
+      )}
 
       {/* 刪除確認彈窗 */}
       {deleteAllModal && (
