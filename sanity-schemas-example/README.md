@@ -12,9 +12,14 @@
 ## 檔案說明
 
 - `fengbro-subscription.ts`：鋒兄訂閱
+- `fengbro-trialpurchase.ts`：鋒兄試用／首購
+- `fengbro-reinstall.ts`：鋒兄重灌清單
+- `fengbro-quota.ts`：鋒兄額度（不含自動同步憑證）
 - `fengbro-food.ts`：鋒兄食品與商品庫存
+- `fengbro-shoppinglist.ts`：鋒兄購物清單
 - `fengbro-notes.ts`：鋒兄筆記
 - `fengbro-common.ts`：鋒兄常用
+- `fengbro-mail.ts`、`fengbro-experience.ts`、`fengbro-member.ts`、`fengbro-cloud.ts`、`fengbro-host.ts`：相容既有 Sanity Studio 的舊文件型別
 - `fengbro-images.ts`：鋒兄圖片，含 Sanity Asset metadata
 - `fengbro-videos.ts`：鋒兄影片，含 Sanity Asset metadata
 - `fengbro-music.ts`：鋒兄音樂，含 Sanity Asset metadata

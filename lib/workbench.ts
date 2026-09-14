@@ -1,4 +1,4 @@
-/** 鋒兄工作台殼層純函式：導覽、網址標籤、空狀態、紙面主題。供 island 與 Deno 測試共用。 */
+/** 鋒兄工作台殼層純函式：導覽、網址標籤、空狀態、介面明暗場。供 island 與 Deno 測試共用。 */
 
 export type ThemeMode = "light" | "dark";
 export type DensityMode = "comfortable" | "compact";
@@ -46,7 +46,7 @@ export function emptyStateKind(input: {
   return "no-rows";
 }
 
-export type PaperTarget = {
+export type ShellTarget = {
   dataset: {
     theme?: string;
     density?: string;
@@ -54,18 +54,18 @@ export type PaperTarget = {
   };
 };
 
-export function applyTheme(target: PaperTarget, theme: ThemeMode): void {
+export function applyTheme(target: ShellTarget, theme: ThemeMode): void {
   target.dataset.theme = theme;
 }
 
-export function applyDensity(target: PaperTarget, density: DensityMode): void {
+export function applyDensity(target: ShellTarget, density: DensityMode): void {
   if (density === "compact") target.dataset.density = "compact";
   else delete target.dataset.density;
 }
 
-/** 一次套用夜紙 + 緊湊（或暖紙 + 舒適）到文件根。 */
-export function applyPaper(
-  target: PaperTarget,
+/** 一次套用暗場 + 密排（或明場 + 寬距）到文件根。 */
+export function applyShell(
+  target: ShellTarget,
   theme: ThemeMode,
   density: DensityMode,
 ): void {
@@ -73,6 +73,9 @@ export function applyPaper(
   applyDensity(target, density);
 }
 
-/** 首屏 FOUC 防護：在第一幀前寫入 html[data-theme] / [data-density]。 */
-export const paperBootScript =
-  `(function(){try{var t=localStorage.getItem("${THEME_STORAGE_KEY}");if(t!=="dark"&&t!=="light"){t=window.matchMedia&&window.matchMedia("(prefers-color-scheme: dark)").matches?"dark":"light";}document.documentElement.dataset.theme=t;var d=localStorage.getItem("${DENSITY_STORAGE_KEY}");if(d==="compact")document.documentElement.dataset.density="compact";}catch(e){document.documentElement.dataset.theme="light";}})();`;
+/**
+ * 首屏 FOUC 防護：在第一幀前寫入 html[data-theme] / [data-density]。
+ * 這版的原生狀態是暗場，所以沒有存過偏好、也問不到系統偏好時一律先給暗場。
+ */
+export const shellBootScript =
+  `(function(){try{var t=localStorage.getItem("${THEME_STORAGE_KEY}");if(t!=="dark"&&t!=="light"){t=window.matchMedia&&window.matchMedia("(prefers-color-scheme: light)").matches?"light":"dark";}document.documentElement.dataset.theme=t;var d=localStorage.getItem("${DENSITY_STORAGE_KEY}");if(d==="compact")document.documentElement.dataset.density="compact";}catch(e){document.documentElement.dataset.theme="dark";}})();`;

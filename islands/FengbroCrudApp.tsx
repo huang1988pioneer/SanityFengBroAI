@@ -9,13 +9,20 @@ import {
   THEME_STORAGE_KEY,
 } from "../lib/workbench.ts";
 
-type FieldType = "text" | "number" | "date" | "datetime" | "url" | "boolean" | "textarea" | "password";
+type FieldType = "text" | "number" | "date" | "datetime" | "time" | "url" | "boolean" | "textarea" | "password";
+
+type FieldOption = {
+  value: string;
+  label: string;
+};
 
 type Field = {
   key: string;
   label: string;
   type?: FieldType;
   wide?: boolean;
+  options?: readonly FieldOption[];
+  defaultValue?: string | number | boolean;
 };
 
 type Row = Record<string, string | number | boolean>;
@@ -40,6 +47,19 @@ type SanitySettings = {
 const todayStamp = () => new Date().toISOString().slice(0, 10).replaceAll("-", "");
 const settingsKey = "fengbro.sanity.settings.v1";
 const previewModuleIds = new Set(["images", "videos", "music", "documents", "podcast"]);
+const imagePreviewModuleIds = new Set(["images", "food", "routine", "shoppinglist", "member"]);
+const previewableModuleIds = new Set([...previewModuleIds, ...imagePreviewModuleIds]);
+const previewFieldByModule: Record<string, string> = {
+  food: "photo",
+  routine: "photo",
+  shoppinglist: "imageUrl",
+  member: "img",
+  images: "url",
+  videos: "url",
+  music: "url",
+  documents: "url",
+  podcast: "url",
+};
 
 const defaultSettings: SanitySettings = {
   projectId: "",
@@ -58,6 +78,27 @@ const commonMediaFields: Field[] = [
   { key: "category", label: "分類" },
   { key: "date", label: "日期", type: "date" },
   { key: "note", label: "備註", type: "textarea", wide: true },
+];
+
+const trialStatusOptions: FieldOption[] = [
+  { value: "untried", label: "未試用" },
+  { value: "trialing", label: "試用中" },
+  { value: "tried", label: "已試用" },
+  { value: "no_trial", label: "無試用" },
+];
+
+const purchaseStatusOptions: FieldOption[] = [
+  { value: "not_purchased", label: "無首購" },
+  { value: "purchasing", label: "首購中" },
+  { value: "purchased", label: "已首購" },
+  { value: "unavailable", label: "無提供首購" },
+];
+
+const currencyOptions: FieldOption[] = [
+  { value: "TWD", label: "台幣 TWD" },
+  { value: "USD", label: "美元 USD" },
+  { value: "JPY", label: "日圓 JPY" },
+  { value: "CNY", label: "人民幣 CNY" },
 ];
 
 const modules: Module[] = [
@@ -87,6 +128,119 @@ const modules: Module[] = [
     ],
   },
   {
+    id: "trialpurchase",
+    label: "鋒兄試用／首購",
+    shortLabel: "試用",
+    icon: "badge",
+    description: "對應 Appwrite trialpurchase：服務試用、首購價格與狀態追蹤。",
+    fields: [
+      { key: "name", label: "服務名稱" },
+      { key: "eventDate", label: "活動日期", type: "datetime" },
+      { key: "firstPurchasePrice", label: "首購價格", type: "number" },
+      { key: "regularPrice", label: "原價", type: "number" },
+      { key: "account", label: "帳號" },
+      { key: "note", label: "備註", type: "textarea", wide: true },
+      { key: "trialStatus", label: "試用狀態", options: trialStatusOptions, defaultValue: "untried" },
+      { key: "purchaseStatus", label: "首購狀態", options: purchaseStatusOptions, defaultValue: "not_purchased" },
+    ],
+    seed: [{
+      name: "範例服務",
+      eventDate: "",
+      firstPurchasePrice: 0,
+      regularPrice: 0,
+      account: "",
+      note: "Appwrite trialpurchase 資料可用 CSV 遷移至此。",
+      trialStatus: "untried",
+      purchaseStatus: "not_purchased",
+    }],
+  },
+  {
+    id: "reinstall",
+    label: "鋒兄重灌",
+    shortLabel: "重灌",
+    icon: "laptop",
+    description: "對應 Appwrite reinstall：重灌清單、授權、訂閱軟體與安裝網址。",
+    fields: [
+      { key: "name", label: "軟體名稱" },
+      { key: "category", label: "分類" },
+      { key: "system", label: "系統", options: [{ value: "win", label: "Windows" }, { value: "mac", label: "Mac" }], defaultValue: "win" },
+      { key: "softwareType", label: "軟體類型", options: [{ value: "trial", label: "試用軟體" }, { value: "free", label: "免費軟體" }, { value: "paid", label: "付費軟體" }], defaultValue: "free" },
+      { key: "licenseType", label: "授權方式", options: [{ value: "none", label: "無序號" }, { value: "paid_serial", label: "付費序號" }], defaultValue: "none" },
+      { key: "serial", label: "序號", type: "password", wide: true },
+      { key: "viewPassword", label: "檢視密碼", type: "password" },
+      { key: "subscriptionSoftware", label: "訂閱制軟體", type: "boolean", defaultValue: false },
+      { key: "subscriptionPeriod", label: "訂閱週期" },
+      { key: "subscriptionPrice", label: "訂閱價格", type: "number" },
+      { key: "subscriptionCurrency", label: "訂閱幣別", options: currencyOptions, defaultValue: "TWD" },
+      { key: "site", label: "軟體網站", type: "url" },
+      { key: "note", label: "備註", type: "textarea", wide: true },
+    ],
+    seed: [{
+      name: "範例工具",
+      category: "系統",
+      system: "win",
+      softwareType: "free",
+      licenseType: "none",
+      serial: "",
+      viewPassword: "",
+      subscriptionSoftware: false,
+      subscriptionPeriod: "",
+      subscriptionPrice: 0,
+      subscriptionCurrency: "TWD",
+      site: "",
+      note: "重灌後要安裝的工具。",
+    }],
+  },
+  {
+    id: "quota",
+    label: "鋒兄額度",
+    shortLabel: "額度",
+    icon: "gauge",
+    description: "對應 Appwrite quota：服務額度、AI 使用比例與到期時間。同步憑證不會回傳到瀏覽器。",
+    fields: [
+      { key: "name", label: "服務名稱" },
+      { key: "serviceType", label: "服務類型", options: [{ value: "general", label: "一般" }, { value: "ai", label: "AI 服務" }], defaultValue: "general" },
+      { key: "account", label: "帳號" },
+      { key: "quotaRemaining", label: "剩餘額度", type: "number" },
+      { key: "quotaPoints", label: "剩餘點數", type: "number" },
+      { key: "litmediaAccount", label: "LitMedia 帳號" },
+      { key: "pointsSyncedAt", label: "點數同步時間", type: "datetime" },
+      { key: "quotaRatio", label: "額度剩餘比例", type: "number" },
+      { key: "quotaExpiry", label: "額度到期", type: "datetime" },
+      { key: "usageSyncedAt", label: "用量同步時間", type: "datetime" },
+      { key: "ratio5h", label: "5 小時比例", type: "number" },
+      { key: "expiry5h", label: "5 小時到期", type: "time" },
+      { key: "ratioWeek", label: "一週比例", type: "number" },
+      { key: "expiryWeek", label: "一週到期", type: "date" },
+      { key: "ratioMonth", label: "一月比例", type: "number" },
+      { key: "expiryMonth", label: "一月到期", type: "date" },
+      { key: "resetCreditsBalance", label: "重置額度", type: "number" },
+      { key: "resetCreditsExpiry", label: "重置額度到期" },
+      { key: "note", label: "備註", type: "textarea", wide: true },
+    ],
+    seed: [{
+      name: "範例 AI 服務",
+      serviceType: "ai",
+      account: "",
+      quotaRemaining: 0,
+      quotaPoints: 0,
+      litmediaAccount: "",
+      pointsSyncedAt: "",
+      quotaRatio: 0,
+      quotaExpiry: "",
+      usageSyncedAt: "",
+      ratio5h: 0,
+      expiry5h: "",
+      ratioWeek: 0,
+      expiryWeek: "",
+      ratioMonth: 0,
+      expiryMonth: "",
+      resetCreditsBalance: 0,
+      resetCreditsExpiry: "",
+      note: "額度資料可從 Appwrite quota CSV 匯入。",
+    }],
+  },
+  {
     id: "food",
     label: "鋒兄食品（商品庫存）",
     shortLabel: "食品",
@@ -110,6 +264,45 @@ const modules: Module[] = [
     ],
   },
   {
+    id: "shoppinglist",
+    label: "鋒兄購物清單",
+    shortLabel: "購物",
+    icon: "cart",
+    description: "對應 Appwrite shoppinglist：預定購買日、數量、店家、取貨方式與商品圖片。",
+    fields: [
+      { key: "name", label: "商品名稱" },
+      { key: "plannedDate", label: "預定購買日", type: "datetime" },
+      { key: "price", label: "預定價格", type: "number" },
+      { key: "currency", label: "幣別", options: currencyOptions, defaultValue: "TWD" },
+      { key: "quantity", label: "數量", type: "number", defaultValue: 1 },
+      { key: "shop", label: "預定商店" },
+      { key: "pickupMethod", label: "取貨方式", options: [
+        { value: "門市購買", label: "門市購買" },
+        { value: "超商取貨付款", label: "超商取貨付款" },
+        { value: "蝦皮取貨付款", label: "蝦皮取貨付款" },
+        { value: "宅配/郵寄", label: "宅配／郵寄" },
+        { value: "超商取貨", label: "超商取貨" },
+        { value: "蝦皮取貨", label: "蝦皮取貨" },
+        { value: "門市取貨", label: "門市取貨" },
+      ] },
+      { key: "imageUrl", label: "商品圖片", type: "url", wide: true },
+      { key: "account", label: "帳號" },
+      { key: "note", label: "備註", type: "textarea", wide: true },
+    ],
+    seed: [{
+      name: "範例商品",
+      plannedDate: "",
+      price: 0,
+      currency: "TWD",
+      quantity: 1,
+      shop: "",
+      pickupMethod: "",
+      imageUrl: "",
+      account: "",
+      note: "Appwrite shoppinglist 資料可用 CSV 遷移至此。",
+    }],
+  },
+  {
     id: "notes",
     label: "鋒兄筆記",
     shortLabel: "筆記",
@@ -126,6 +319,15 @@ const modules: Module[] = [
       { key: "file1", label: "檔案 1", type: "url" },
       { key: "file1name", label: "檔名 1" },
       { key: "file1type", label: "檔案類型 1" },
+      { key: "file2", label: "檔案 2", type: "url" },
+      { key: "file2name", label: "檔名 2" },
+      { key: "file2type", label: "檔案類型 2" },
+      { key: "file3", label: "檔案 3", type: "url" },
+      { key: "file3name", label: "檔名 3" },
+      { key: "file3type", label: "檔案類型 3" },
+      { key: "image", label: "舊 Studio 圖片", type: "url" },
+      { key: "video", label: "舊 Studio 影片", type: "url" },
+      { key: "pdf", label: "舊 Studio PDF", type: "url" },
     ],
     seed: [
       { title: "歷史價格紀錄", content: "KIOXIA 鎧俠 Exceria Plus G3 SSD M.2 2280 PCIe NVMe 1TB Gen4x4\n曾經來到2090元", category: "", newDate: "2026-06-04", url1: "https://24h.pchome.com.tw/prod/DRAHGT-A900GOJVX", url2: "", url3: "", file1: "", file1name: "", file1type: "" },
@@ -154,6 +356,78 @@ const modules: Module[] = [
       { name: "goldshoot0720@gmail.com", site01: "可灵AI", note01: "", site02: "即夢AI", note02: "", site03: "Appwrite", note03: "", site04: "Vercel", note04: "" },
       { name: "dailycash539get8000000@outlook.com", site01: "Appwrite", note01: "", site02: "Github", note02: "", site03: "Outlook", note03: "", site04: "Suno", note04: "" },
     ],
+  },
+  {
+    id: "mail",
+    label: "鋒兄郵件",
+    shortLabel: "郵件",
+    icon: "mail",
+    description: "相容 sanitygoldshoot0720 的 mail 文件：主機、地址、帳號與登入網址。",
+    fields: [
+      { key: "name", label: "名稱" },
+      { key: "host", label: "主機" },
+      { key: "address", label: "地址" },
+      { key: "account", label: "帳號" },
+      { key: "url", label: "網址", type: "url" },
+    ],
+    seed: [{ name: "範例郵件", host: "", address: "", account: "", url: "" }],
+  },
+  {
+    id: "experience",
+    label: "鋒兄經歷",
+    shortLabel: "經歷",
+    icon: "briefcase",
+    description: "相容 sanitygoldshoot0720 的 experience 文件：年份、單位與網站。",
+    fields: [
+      { key: "title", label: "標題" },
+      { key: "year", label: "年份", type: "number" },
+      { key: "gov", label: "單位" },
+      { key: "site", label: "網站", type: "url" },
+    ],
+    seed: [{ title: "範例經歷", year: 2026, gov: "", site: "" }],
+  },
+  {
+    id: "member",
+    label: "鋒兄成員",
+    shortLabel: "成員",
+    icon: "users",
+    description: "相容 sanitygoldshoot0720 的 member 文件：關係、單位、網站與頭像。",
+    fields: [
+      { key: "name", label: "名稱" },
+      { key: "title", label: "職稱" },
+      { key: "relation", label: "關係" },
+      { key: "gov", label: "單位" },
+      { key: "site", label: "網站", type: "url" },
+      { key: "img", label: "頭像", type: "url", wide: true },
+    ],
+    seed: [{ name: "範例成員", title: "", relation: "", gov: "", site: "", img: "" }],
+  },
+  {
+    id: "cloud",
+    label: "鋒兄雲端",
+    shortLabel: "雲端",
+    icon: "cloud",
+    description: "相容 sanitygoldshoot0720 的 cloud 文件：雲端服務、帳號與容量。",
+    fields: [
+      { key: "name", label: "名稱" },
+      { key: "site", label: "網站", type: "url" },
+      { key: "account", label: "帳號" },
+      { key: "space", label: "容量", type: "number" },
+    ],
+    seed: [{ name: "範例雲端", site: "", account: "", space: "" }],
+  },
+  {
+    id: "host",
+    label: "鋒兄主機",
+    shortLabel: "主機",
+    icon: "server",
+    description: "相容 sanitygoldshoot0720 的 host 文件：主機服務、網址與帳號。",
+    fields: [
+      { key: "name", label: "名稱" },
+      { key: "site", label: "網站", type: "url" },
+      { key: "account", label: "帳號" },
+    ],
+    seed: [{ name: "範例主機", site: "", account: "" }],
   },
   { id: "images", label: "鋒兄圖片", shortLabel: "圖片", icon: "image", description: "Sanity document type: fengbro_images。圖片素材、來源、分類與備註。", fields: commonMediaFields, seed: [{ title: "鋒兄 profile", url: "/fengbro-profile.png", category: "頭像", date: "2026-06-06", note: "可替換為 Sanity asset URL。" }] },
   { id: "videos", label: "鋒兄影片", shortLabel: "影片", icon: "video", description: "Sanity document type: fengbro_videos。影片連結、分類與備註。", fields: commonMediaFields, seed: [{ title: "鋒兄Tube 範例", url: "https://www.youtube.com/", category: "YouTube", date: "2026-06-06", note: "可記錄頻道或影片 URL。" }] },
@@ -258,11 +532,13 @@ const modules: Module[] = [
 
 const moduleById = Object.fromEntries(modules.map((module) => [module.id, module]));
 const mediaUploadModules: Record<string, { accept: string; label: string }> = {
+  food: { accept: "image/*", label: "上傳食品照片" },
   images: { accept: "image/*", label: "上傳圖片" },
   videos: { accept: "video/*", label: "上傳影片" },
   music: { accept: "audio/*", label: "上傳音樂" },
   documents: { accept: "*/*", label: "上傳文件" },
   podcast: { accept: "audio/*", label: "上傳播客" },
+  routine: { accept: "image/*", label: "上傳例行照片" },
 };
 
 /** 表格欄位依型別上 class，讓寬度／對齊／換行規則寫在 CSS 而不是散在 JSX。 */
@@ -277,6 +553,7 @@ function columnClass(field: Field): string {
 
 function createEmptyRow(module: Module): Row {
   return Object.fromEntries(module.fields.map((field) => {
+    if (field.defaultValue !== undefined) return [field.key, field.defaultValue];
     if (field.type === "number") return [field.key, 0];
     if (field.type === "boolean") return [field.key, true];
     return [field.key, ""];
@@ -311,27 +588,61 @@ function parseCsv(text: string): string[][] {
     }
   }
 
+  if (quoted) throw new Error("CSV 的引號沒有成對結束");
   row.push(cell);
   if (row.some((value) => value.trim() !== "")) rows.push(row);
   return rows;
 }
 
-function castValue(value: string, field?: Field): string | number | boolean {
+const csvFieldAliases: Record<string, Record<string, string>> = {
+  notes: { date: "newDate" },
+  common: { url: "site01", note: "note01" },
+  bank: { balance: "deposit" },
+  routine: { title: "name", description: "note" },
+};
+
+function resolveCsvField(header: string, module: Module): Field | undefined {
+  const normalized = header.trim().toLowerCase();
+  const alias = csvFieldAliases[module.id]?.[normalized] || normalized;
+  return module.fields.find((field) => field.key.toLowerCase() === alias || field.label.toLowerCase() === normalized);
+}
+
+function castValue(value: string, field: Field | undefined, rowNumber: number): string | number | boolean {
   const trimmed = value.trim();
-  if (field?.type === "number") return Number(trimmed || 0);
-  if (field?.type === "boolean") return ["true", "1", "yes", "y", "續訂", "是"].includes(trimmed.toLowerCase());
+  if (field?.type === "number") {
+    if (!trimmed) return 0;
+    const numeric = Number(trimmed.replaceAll(",", ""));
+    if (!Number.isFinite(numeric)) throw new Error(`CSV 第 ${rowNumber} 列「${field.label}」必須是數字`);
+    return numeric;
+  }
+  if (field?.type === "boolean") {
+    const normalized = trimmed.toLowerCase();
+    if (["true", "1", "yes", "y", "續訂", "是"].includes(normalized)) return true;
+    if (["false", "0", "no", "n", "不續訂", "否"].includes(normalized)) return false;
+    if (!normalized) return true;
+    throw new Error(`CSV 第 ${rowNumber} 列「${field.label}」必須是 是/否 或 true/false`);
+  }
   return value;
 }
 
 function rowsFromCsv(text: string, module: Module): Row[] {
   const csvRows = parseCsv(text.replace(/^\uFEFF/, ""));
   if (csvRows.length === 0) return [];
-  const headers = csvRows[0].map((header) => header.trim());
-  return csvRows.slice(1).map((values) => {
+  const fields = csvRows[0].map((header) => resolveCsvField(header, module));
+  if (!fields.some(Boolean)) {
+    throw new Error(`CSV 找不到「${module.shortLabel}」可辨識的欄名；請使用匯出檔或欄位鍵名。`);
+  }
+  const duplicates = fields.filter(Boolean).filter((field, index, values) =>
+    values.findIndex((candidate) => candidate?.key === field?.key) !== index
+  );
+  if (duplicates.length > 0) {
+    throw new Error(`CSV 欄名重複：${duplicates.map((field) => field?.label).join("、")}`);
+  }
+  return csvRows.slice(1).map((values, index) => {
     const row: Row = createEmptyRow(module);
-    headers.forEach((header, index) => {
-      const field = module.fields.find((item) => item.key === header);
-      row[header] = castValue(values[index] ?? "", field);
+    fields.forEach((field, column) => {
+      if (!field) return;
+      row[field.key] = castValue(values[column] ?? "", field, index + 2);
     });
     return row;
   });
@@ -386,6 +697,22 @@ function stripSystemFields(row: Row): Row {
   return clean;
 }
 
+/** datetime-local 不接受 Z / +08:00；顯示時轉成本機可編輯的格式。 */
+function toDateTimeLocalValue(value: unknown): string {
+  const raw = String(value ?? "").trim();
+  if (!raw) return "";
+  const date = new Date(raw);
+  if (Number.isNaN(date.getTime())) return raw.slice(0, 16);
+  const pad = (number: number) => String(number).padStart(2, "0");
+  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}T${pad(date.getHours())}:${pad(date.getMinutes())}`;
+}
+
+function fromDateTimeLocalValue(value: string): string {
+  if (!value) return "";
+  const date = new Date(value);
+  return Number.isNaN(date.getTime()) ? value : date.toISOString();
+}
+
 function getUrlExtension(url: string) {
   try {
     return new URL(url, globalThis.location?.origin || "http://localhost").pathname.split(".").pop()?.toLowerCase() || "";
@@ -409,12 +736,22 @@ function getYouTubeEmbedUrl(url: string) {
   }
 }
 
+/** Only the media field for a module gets an inline preview; normal website links stay links. */
+function isPreviewField(moduleId: string, fieldKey: string) {
+  return previewFieldByModule[moduleId] === fieldKey;
+}
+
+function moduleMediaUrl(moduleId: string, row: Row) {
+  const field = previewFieldByModule[moduleId];
+  return field ? String(row[field] || "") : "";
+}
+
 function MediaPreview(
   { moduleId, url, compact = false, onExpand }:
     { moduleId: string; url: string; compact?: boolean; onExpand?: (url: string) => void },
 ) {
   const source = url.trim();
-  if (!source || !previewModuleIds.has(moduleId)) return null;
+  if (!source || !previewableModuleIds.has(moduleId)) return null;
 
   const ext = getUrlExtension(source);
   const isAudio = ["mp3", "wav", "ogg", "m4a", "aac", "flac"].includes(ext);
@@ -422,7 +759,7 @@ function MediaPreview(
   const isPdf = ext === "pdf";
   const youtubeEmbed = getYouTubeEmbedUrl(source);
 
-  if (moduleId === "images") {
+  if (imagePreviewModuleIds.has(moduleId)) {
     return (
       <a class={compact ? "media-preview compact" : "media-preview"} href={source} target="_blank" rel="noreferrer">
         <img src={source} alt="" loading="lazy" />
@@ -498,6 +835,15 @@ function Icon({ name }: { name: string }) {
     bank: "M3 9l9-6 9 6zM5 10h14M6 10v8M10 10v8M14 10v8M18 10v8M4 20h16",
     repeat: "M17 1l4 4-4 4M3 11V9a4 4 0 0 1 4-4h14M7 23l-4-4 4-4M21 13v2a4 4 0 0 1-4 4H3",
     tool: "M14 7l3 3 5-5a6 6 0 0 1-8 8l-8 8-3-3 8-8a6 6 0 0 1 8-8z",
+    badge: "M12 2l2.4 2.4 3.4-.4.8 3.3 2.9 1.8-1.8 2.9.4 3.4-3.3.8L12 22l-2.4-2.4-3.4.4-.8-3.3-2.9-1.8 1.8-2.9-.4-3.4 3.3-.8L12 2zM9 12l2 2 4-4",
+    laptop: "M5 4h14v11H5zM2 18h20M9 21h6",
+    gauge: "M4 15a8 8 0 1 1 16 0M12 12l4-4M12 12v.01M4 20h16",
+    cart: "M3 4h2l2.2 10h10.6l2-7H7M9 20a1 1 0 1 0 0-2 1 1 0 0 0 0 2zM17 20a1 1 0 1 0 0-2 1 1 0 0 0 0 2z",
+    mail: "M4 5h16v14H4zM4 7l8 6 8-6",
+    briefcase: "M4 8h16v12H4zM8 8V5h8v3M4 13h16M10 13v2h4v-2",
+    users: "M16 20v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2M10 10a4 4 0 1 0 0-8 4 4 0 0 0 0 8zM20 20v-2a4 4 0 0 0-3-3.87M16 4.13a4 4 0 0 1 0 7.75",
+    cloud: "M6 18a4 4 0 1 1 1.3-7.78A6 6 0 0 1 19 12a3 3 0 0 1-1 5.83V18z",
+    server: "M4 4h16v6H4zM4 14h16v6H4zM7 7h.01M7 17h.01M11 7h6M11 17h6",
     phone: "M8 2h8a2 2 0 0 1 2 2v16a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2zM11 18h2",
     play: "M8 5v14l11-7z",
     chart: "M4 19V5M4 19h16M8 16l3-5 4 3 5-8",
@@ -563,7 +909,23 @@ const navGroups: NavGroup[] = [
     label: "鋒兄管理",
     short: "管理",
     icon: "box",
-    children: ["subscription", "food", "notes", "common", "bank", "routine"].map(moduleLeaf),
+    children: [
+      "subscription",
+      "trialpurchase",
+      "reinstall",
+      "quota",
+      "food",
+      "shoppinglist",
+      "notes",
+      "common",
+      "mail",
+      "bank",
+      "routine",
+      "cloud",
+      "host",
+      "experience",
+      "member",
+    ].map(moduleLeaf),
   },
   {
     id: "media",
@@ -1285,7 +1647,7 @@ function AboutDesk({
         <ul class="about-facts">
           <li><b>骨架</b><strong>Deno Fresh</strong></li>
           <li><b>冊頁</b><strong>Sanity</strong></li>
-          <li><b>光線</b><strong>{theme === "dark" ? "夜紙" : "暖紙"}</strong></li>
+          <li><b>光線</b><strong>{theme === "dark" ? "暗場" : "明場"}</strong></li>
           <li><b>葉片</b><strong>{moduleCount} 模組</strong></li>
         </ul>
       </article>
@@ -1516,9 +1878,13 @@ function MediaWall({
 }
 
 function noteLinks(row: Row): string[] {
-  return [row.url1, row.url2, row.url3, row.file1]
+  // article in the legacy Studio can carry three regular files plus image,
+  // video and PDF attachments.  The old list only surfaced file1, silently
+  // hiding the rest of an otherwise successful migration.
+  return [row.url1, row.url2, row.url3, row.file1, row.file2, row.file3, row.image, row.video, row.pdf]
     .map((value) => String(value || "").trim())
-    .filter(Boolean);
+    .filter(Boolean)
+    .filter((url, index, urls) => urls.indexOf(url) === index);
 }
 
 function NotesFolio({
@@ -1822,13 +2188,13 @@ function SettingsCabinet({
               <span>掛上鑰匙後按一次，確認讀寫是否通。結果只留在這張戳記上。</span>
             </div>
           )}
-          <div class="keys-paper" role="group" aria-label="紙面">
-            <p class="crumb">紙面</p>
+          <div class="keys-paper" role="group" aria-label="介面">
+            <p class="crumb">介面</p>
             <div class="keys-chips">
-              <button type="button" class={theme === "light" ? "keys-chip on" : "keys-chip"} onClick={() => onTheme("light")}>暖紙</button>
-              <button type="button" class={theme === "dark" ? "keys-chip on" : "keys-chip"} onClick={() => onTheme("dark")}>夜紙</button>
-              <button type="button" class={density === "comfortable" ? "keys-chip on" : "keys-chip"} onClick={() => onDensity("comfortable")}>舒適</button>
-              <button type="button" class={density === "compact" ? "keys-chip on" : "keys-chip"} onClick={() => onDensity("compact")}>緊湊</button>
+              <button type="button" class={theme === "light" ? "keys-chip on" : "keys-chip"} onClick={() => onTheme("light")}>明場</button>
+              <button type="button" class={theme === "dark" ? "keys-chip on" : "keys-chip"} onClick={() => onTheme("dark")}>暗場</button>
+              <button type="button" class={density === "comfortable" ? "keys-chip on" : "keys-chip"} onClick={() => onDensity("comfortable")}>寬距</button>
+              <button type="button" class={density === "compact" ? "keys-chip on" : "keys-chip"} onClick={() => onDensity("compact")}>密排</button>
             </div>
           </div>
         </aside>
@@ -1853,7 +2219,7 @@ export default function FengbroCrudApp() {
   const [deleteAllModal, setDeleteAllModal] = useState(false);
   const [deleteConfirmText, setDeleteConfirmText] = useState("");
   const [expandedDocumentUrl, setExpandedDocumentUrl] = useState("");
-  const [theme, setTheme] = useState<"light" | "dark">("light");
+  const [theme, setTheme] = useState<"light" | "dark">("dark");
   const [density, setDensity] = useState<DensityMode>("comfortable");
   const [showToken, setShowToken] = useState(false);
   const [diag, setDiag] = useState<DiagReport | null>(null);
@@ -1861,6 +2227,7 @@ export default function FengbroCrudApp() {
   const [lastLeaf, setLastLeaf] = useState<Record<string, string>>({});
   const themeMounted = useRef(false);
   const densityMounted = useRef(false);
+  const loadRequestId = useRef(0);
   const fileRef = useRef<HTMLInputElement>(null);
   const uploadRef = useRef<HTMLInputElement>(null);
   const activeModule = moduleById[activeId];
@@ -1903,11 +2270,11 @@ export default function FengbroCrudApp() {
   const toggleDensity = () => setDensity((prev) => (prev === "compact" ? "comfortable" : "compact"));
 
   useEffect(() => {
-    let initial: "light" | "dark" = "light";
+    let initial: "light" | "dark" = "dark";
     try {
       const saved = localStorage.getItem(themeKey);
       if (saved === "dark" || saved === "light") initial = saved;
-      else if (globalThis.matchMedia("(prefers-color-scheme: dark)").matches) initial = "dark";
+      else if (globalThis.matchMedia("(prefers-color-scheme: light)").matches) initial = "light";
     } catch { /* ignore */ }
     applyTheme(document.documentElement, initial);
     themeMounted.current = true;
@@ -1965,6 +2332,7 @@ export default function FengbroCrudApp() {
 
   const loadRows = async (moduleId = activeId, nextSettings = settings) => {
     if (moduleId === "settings") return;
+    const requestId = ++loadRequestId.current;
     setLoading(true);
     setErrorText("");
     try {
@@ -1973,14 +2341,16 @@ export default function FengbroCrudApp() {
       });
       const data = await response.json();
       if (!response.ok) throw new Error(data.error || "Sanity 讀取失敗");
+      if (requestId !== loadRequestId.current) return;
       setRows(data.rows || []);
       const typeHint = data.type ? `（type: ${data.type}）` : "";
       setMessage(data.error || `已從 Sanity 載入 ${data.rows?.length ?? 0} 筆${typeHint}`);
     } catch (error) {
+      if (requestId !== loadRequestId.current) return;
       setRows([]);
       fail(error, "Sanity 讀取失敗");
     } finally {
-      setLoading(false);
+      if (requestId === loadRequestId.current) setLoading(false);
     }
   };
 
@@ -2019,20 +2389,37 @@ export default function FengbroCrudApp() {
     const linked = rows.filter((row) => noteLinks(row).length > 0).length;
     return { total, money, boolCount, categories, linked };
   }, [rows]);
+  const draftMediaUrl = moduleMediaUrl(activeId, draft);
 
   const updateDraft = (key: string, value: string | number | boolean) => {
     setDraft((current) => ({ ...current, [key]: value }));
   };
 
+  const draftPayload = () => {
+    const row = stripSystemFields({ ...createEmptyRow(activeModule), ...draft });
+    const unset = editingId
+      ? activeModule.fields
+        .filter((field) => ["date", "datetime", "url"].includes(field.type || "") && !String(row[field.key] ?? "").trim())
+        .map((field) => field.key)
+      : [];
+    unset.forEach((key) => delete row[key]);
+    if (!editingId) {
+      activeModule.fields
+        .filter((field) => ["date", "datetime", "url"].includes(field.type || "") && !String(row[field.key] ?? "").trim())
+        .forEach((field) => delete row[field.key]);
+    }
+    return { row, unset };
+  };
+
   const saveDraft = async () => {
-    const payload = stripSystemFields({ ...createEmptyRow(activeModule), ...draft });
+    const payload = draftPayload();
     setLoading(true);
     setErrorText("");
     try {
       const response = await fetch(`/api/sanity/${activeId}`, {
         method: editingId ? "PUT" : "POST",
         headers: authHeaders(settings),
-        body: JSON.stringify(editingId ? { id: editingId, row: payload } : { row: payload }),
+        body: JSON.stringify(editingId ? { id: editingId, ...payload } : { row: payload.row }),
       });
       const data = await response.json();
       if (!response.ok) throw new Error(data.error || "Sanity 寫入失敗");
@@ -2083,6 +2470,40 @@ export default function FengbroCrudApp() {
     setDraft(copy);
     setEditingId(null);
     setMessage("已放入新增表單，確認後寫入 Sanity");
+  };
+
+  const patchRow = async (row: Row, changes: Row, messageText: string, unset: string[] = []) => {
+    setLoading(true);
+    setErrorText("");
+    try {
+      const response = await fetch(`/api/sanity/${activeId}`, {
+        method: "PUT",
+        headers: authHeaders(settings),
+        body: JSON.stringify({ id: row.id, row: changes, unset }),
+      });
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.error || "Sanity 更新失敗");
+      setMessage(messageText);
+      await loadRows();
+    } catch (error) {
+      fail(error, "Sanity 更新失敗");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const adjustNumber = (row: Row, key: string, delta: number, label: string) => {
+    const current = Number(row[key] || 0);
+    const next = Math.max(0, Number.isFinite(current) ? current + delta : delta);
+    return patchRow(row, { [key]: next }, `${label}已調整為 ${next}`);
+  };
+
+  const rollRoutineDates = (row: Row) => {
+    if (!confirm("將日期 1 依序推到日期 2、日期 2 推到日期 3，並清空日期 1？")) return;
+    const patch: Row = {};
+    if (row.lastdate1) patch.lastdate2 = row.lastdate1;
+    if (row.lastdate2) patch.lastdate3 = row.lastdate2;
+    return patchRow(row, patch, "已遞移例行日期", ["lastdate1"]);
   };
 
   const toggleSelect = (id: string) => {
@@ -2171,7 +2592,7 @@ export default function FengbroCrudApp() {
       const data = await response.json();
       if (!response.ok) throw new Error(data.error || "Sanity 匯入失敗");
       const typeHint = data.type ? `（type: ${data.type}）` : "";
-      setMessage(`${label}：已匯入 ${imported.length} 筆到 Sanity${typeHint}`);
+      setMessage(`${label}：已匯入 ${data.written ?? imported.length} 筆到 Sanity${typeHint}`);
       await loadRows();
     } catch (error) {
       fail(error, "Sanity 匯入失敗");
@@ -2184,9 +2605,14 @@ export default function FengbroCrudApp() {
     const input = event.currentTarget as HTMLInputElement;
     const file = input.files?.[0];
     if (!file) return;
-    const text = await file.text();
-    await importRows(rowsFromCsv(text, activeModule), "CSV");
-    input.value = "";
+    try {
+      const text = await file.text();
+      await importRows(rowsFromCsv(text, activeModule), "CSV");
+    } catch (error) {
+      fail(error, "CSV 匯入失敗");
+    } finally {
+      input.value = "";
+    }
   };
 
   const uploadMedia = async (event: Event) => {
@@ -2210,11 +2636,14 @@ export default function FengbroCrudApp() {
       });
       const data = await response.json();
       if (!response.ok) throw new Error(data.error || "Sanity 上傳失敗");
-      updateDraft("url", data.url || "");
-      updateDraft("assetId", data.asset?._id || "");
-      updateDraft("filename", data.asset?.originalFilename || file.name);
-      updateDraft("mimeType", data.asset?.mimeType || file.type);
-      updateDraft("size", Number(data.asset?.size || file.size || 0));
+      const urlField = activeId === "food" || activeId === "routine" ? "photo" : "url";
+      updateDraft(urlField, data.url || "");
+      if (activeModule.fields.some((field) => field.key === "assetId")) {
+        updateDraft("assetId", data.asset?._id || "");
+        updateDraft("filename", data.asset?.originalFilename || file.name);
+        updateDraft("mimeType", data.asset?.mimeType || file.type);
+        updateDraft("size", Number(data.asset?.size || file.size || 0));
+      }
       setMessage(`已上傳 ${file.name} 到 Sanity Assets`);
     } catch (error) {
       fail(error, "Sanity 上傳失敗");
@@ -2317,12 +2746,12 @@ export default function FengbroCrudApp() {
           <button
             type="button"
             class={density === "compact" ? "rail-item active" : "rail-item"}
-            title={density === "compact" ? "切換為舒適密度" : "切換為緊湊密度"}
+            title={density === "compact" ? "切換為寬距" : "切換為密排"}
             aria-pressed={density === "compact"}
             onClick={toggleDensity}
           >
             <Icon name={density === "compact" ? "spread" : "rows"} />
-            <span>{density === "compact" ? "緊湊" : "舒適"}</span>
+            <span>{density === "compact" ? "密排" : "寬距"}</span>
           </button>
           <button type="button" class="rail-item" title="全部模組" onClick={() => setSheetOpen(true)}>
             <Icon name="grid" />
@@ -2363,8 +2792,8 @@ export default function FengbroCrudApp() {
                 type="button"
                 class="mode-button"
                 onClick={toggleTheme}
-                title={theme === "dark" ? "切換為暖紙" : "切換為夜紙"}
-                aria-label={theme === "dark" ? "切換為暖紙" : "切換為夜紙"}
+                title={theme === "dark" ? "切換為明場" : "切換為暗場"}
+                aria-label={theme === "dark" ? "切換為明場" : "切換為暗場"}
               >
                 <Icon name={theme === "dark" ? "sun" : "moon"} />
               </button>
@@ -2372,15 +2801,15 @@ export default function FengbroCrudApp() {
                 type="button"
                 class={density === "compact" ? "mode-button on" : "mode-button"}
                 onClick={toggleDensity}
-                title={density === "compact" ? "切換為舒適密度" : "切換為緊湊密度"}
+                title={density === "compact" ? "切換為寬距" : "切換為密排"}
                 aria-pressed={density === "compact"}
-                aria-label={density === "compact" ? "切換為舒適密度" : "切換為緊湊密度"}
+                aria-label={density === "compact" ? "切換為寬距" : "切換為密排"}
               >
                 <Icon name={density === "compact" ? "spread" : "rows"} />
               </button>
               <div class="mode-meta">
-                <span>{theme === "dark" ? "夜紙" : "暖紙"}</span>
-                <strong>{density === "compact" ? "緊湊" : "舒適"}</strong>
+                <span>{theme === "dark" ? "暗場" : "明場"}</span>
+                <strong>{density === "compact" ? "密排" : "寬距"}</strong>
               </div>
             </div>
 
@@ -2428,7 +2857,7 @@ export default function FengbroCrudApp() {
           <div class="surface-pills">
             <span><b>今天</b>{todayLabel}</span>
             <span><b>模組</b>{modules.length} 個</span>
-            <span><b>紙面</b>{theme === "dark" ? "夜紙" : "暖紙"} · {density === "compact" ? "緊湊" : "舒適"}</span>
+            <span><b>介面</b>{theme === "dark" ? "暗場" : "明場"} · {density === "compact" ? "密排" : "寬距"}</span>
           </div>
         </header>
 
@@ -2611,12 +3040,14 @@ export default function FengbroCrudApp() {
                                 {field.type === "url" && row[field.key]
                                   ? (
                                     <div class="media-cell">
-                                      <MediaPreview
-                                        moduleId={activeId}
-                                        url={String(row[field.key])}
-                                        compact
-                                        onExpand={activeId === "documents" ? setExpandedDocumentUrl : undefined}
-                                      />
+                                      {isPreviewField(activeId, field.key) ? (
+                                        <MediaPreview
+                                          moduleId={activeId}
+                                          url={String(row[field.key])}
+                                          compact
+                                          onExpand={activeId === "documents" ? setExpandedDocumentUrl : undefined}
+                                        />
+                                      ) : null}
                                       <a
                                         href={String(row[field.key])}
                                         target="_blank"
@@ -2629,10 +3060,27 @@ export default function FengbroCrudApp() {
                                   )
                                   : field.type === "boolean"
                                   ? <span class={row[field.key] ? "pill on" : "pill"}>{row[field.key] ? "是" : "否"}</span>
+                                  : field.type === "password"
+                                  ? <span class="secret-cell">{row[field.key] ? "••••••" : ""}</span>
                                   : <span class={field.type === "textarea" ? "multiline" : ""}>{String(row[field.key] ?? "")}</span>}
                               </td>
                             ))}
                             <td class="row-actions">
+                              {activeId === "food" && (
+                                <>
+                                  <button type="button" title="庫存減 1" onClick={() => void adjustNumber(row, "amount", -1, "庫存")}>庫 -1</button>
+                                  <button type="button" title="庫存加 1" onClick={() => void adjustNumber(row, "amount", 1, "庫存")}>庫 +1</button>
+                                </>
+                              )}
+                              {activeId === "bank" && (
+                                <>
+                                  <button type="button" title="餘額減 1,000" onClick={() => void adjustNumber(row, "deposit", -1000, "餘額")}>餘 -1K</button>
+                                  <button type="button" title="餘額加 1,000" onClick={() => void adjustNumber(row, "deposit", 1000, "餘額")}>餘 +1K</button>
+                                </>
+                              )}
+                              {activeId === "routine" && (
+                                <button type="button" title="日期 1 → 日期 2 → 日期 3" onClick={() => void rollRoutineDates(row)}>日期遞移</button>
+                              )}
                               <button type="button" title="編輯" onClick={() => editRow(row)}>編輯</button>
                               <button type="button" title="複製" onClick={() => void duplicateRow(row)}>複製</button>
                               <button type="button" title="刪除" class="danger" onClick={() => void deleteRow(row)}>刪除</button>
@@ -2695,6 +3143,13 @@ export default function FengbroCrudApp() {
                       <span>{field.label}</span>
                       {field.type === "textarea"
                         ? <textarea value={String(draft[field.key] ?? "")} onInput={(event) => updateDraft(field.key, event.currentTarget.value)} />
+                        : field.options
+                        ? (
+                          <select value={String(draft[field.key] ?? "")} onChange={(event) => updateDraft(field.key, event.currentTarget.value)}>
+                            <option value="">未設定</option>
+                            {field.options.map((option) => <option value={option.value}>{option.label}</option>)}
+                          </select>
+                        )
                         : field.type === "boolean"
                         ? (
                           <select value={draft[field.key] ? "true" : "false"} onChange={(event) => updateDraft(field.key, event.currentTarget.value === "true")}>
@@ -2704,18 +3159,38 @@ export default function FengbroCrudApp() {
                         )
                         : (
                           <input
-                            type={field.type === "number" ? "number" : field.type === "date" ? "date" : field.type === "url" ? "url" : "text"}
-                            value={String(draft[field.key] ?? "")}
-                            onInput={(event) => updateDraft(field.key, field.type === "number" ? Number(event.currentTarget.value || 0) : event.currentTarget.value)}
+                            type={field.type === "number"
+                              ? "number"
+                              : field.type === "date"
+                              ? "date"
+                              : field.type === "datetime"
+                              ? "datetime-local"
+                              : field.type === "time"
+                              ? "time"
+                              : field.type === "url"
+                              ? "url"
+                              : field.type === "password"
+                              ? "password"
+                              : "text"}
+                            value={field.type === "datetime" ? toDateTimeLocalValue(draft[field.key]) : String(draft[field.key] ?? "")}
+                            autocomplete={field.type === "password" ? "new-password" : undefined}
+                            onInput={(event) => updateDraft(
+                              field.key,
+                              field.type === "number"
+                                ? Number(event.currentTarget.value || 0)
+                                : field.type === "datetime"
+                                ? fromDateTimeLocalValue(event.currentTarget.value)
+                                : event.currentTarget.value,
+                            )}
                           />
                         )}
                     </label>
                   ))}
                 </div>
-                {previewModuleIds.has(activeId) && String(draft.url || "").trim() && (
+                {previewableModuleIds.has(activeId) && draftMediaUrl.trim() && (
                   <div class="editor-preview">
                     <span>媒體預覽</span>
-                    <MediaPreview moduleId={activeId} url={String(draft.url || "")} />
+                    <MediaPreview moduleId={activeId} url={draftMediaUrl} />
                   </div>
                 )}
                 {uploadConfig && (
@@ -2735,7 +3210,7 @@ export default function FengbroCrudApp() {
                     >
                       {uploading ? "上傳中..." : uploadConfig.label}
                     </button>
-                    <p>檔案會上傳到 Sanity Assets，成功後自動填入「連結」欄位。</p>
+                    <p>檔案會上傳到 Sanity Assets，成功後自動填入「{activeId === "food" || activeId === "routine" ? "照片" : "連結"}」欄位。</p>
                   </div>
                 )}
                 <button class="save-button" type="submit" disabled={loading}>
@@ -2875,4 +3350,3 @@ export default function FengbroCrudApp() {
     </div>
   );
 }
-

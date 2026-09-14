@@ -1,22 +1,16 @@
 import type { Handlers } from "$fresh/server.ts";
+import {
+  buildTypeFilter,
+  getModuleFields,
+  getTypeAliases,
+  getWriteType,
+  normalizeRows,
+  pickModuleFields,
+  validateModuleRow,
+  type SanityRow,
+} from "../../../lib/sanity_docs.ts";
 
-type Row = Record<string, unknown>;
-
-const moduleTypeAliases: Record<string, string[]> = {
-  subscription: ["subscription", "fengbro_subscription"],
-  food: ["food", "fengbro_food"],
-  notes: ["notes", "fengbro_notes"],
-  common: ["common", "fengbro_common"],
-  images: ["images", "fengbro_images"],
-  videos: ["videos", "fengbro_videos"],
-  music: ["music", "fengbro_music"],
-  documents: ["documents", "fengbro_documents"],
-  podcast: ["podcast", "fengbro_podcast"],
-  bank: ["bank", "fengbro_bank"],
-  routine: ["routine", "fengbro_routine"],
-  tools: ["tools", "fengbro_tools"],
-  about: ["about", "fengbro_about"],
-};
+type Row = SanityRow;
 
 function json(data: unknown, status = 200) {
   return new Response(JSON.stringify(data), {
@@ -43,25 +37,12 @@ function assertConfig(config: ReturnType<typeof getConfig>) {
   return "";
 }
 
-function getTypeAliases(moduleId: string) {
-  return moduleTypeAliases[moduleId] || [];
+function isRow(value: unknown): value is Row {
+  return Boolean(value) && typeof value === "object" && !Array.isArray(value);
 }
 
-function getWriteType(moduleId: string) {
-  return getTypeAliases(moduleId)[0] || "";
-}
-
-function buildTypeFilter(types: string[]) {
-  return types.map((type) => `_type == "${type}"`).join(" || ");
-}
-
-function cleanRow(row: Row) {
-  const cleaned: Row = {};
-  for (const [key, value] of Object.entries(row || {})) {
-    if (key === "id" || key.startsWith("_")) continue;
-    cleaned[key] = value;
-  }
-  return cleaned;
+function cleanRow(moduleId: string, row: Row) {
+  return pickModuleFields(moduleId, row);
 }
 
 async function sanityFetch(config: ReturnType<typeof getConfig>, path: string, init?: RequestInit) {
@@ -107,16 +88,13 @@ export const handler: Handlers = {
         typeAliases,
         error: configError,
         configMissing: true,
-      });
+      }, 400);
     }
 
     try {
       const query = encodeURIComponent(`*[${buildTypeFilter(typeAliases)}] | order(_updatedAt desc)`);
       const data = await sanityFetch(config, `query/${encodeURIComponent(config.dataset)}?query=${query}`);
-      const rows = (data.result || []).map((doc: Row) => ({
-        id: doc._id,
-        ...doc,
-      }));
+      const rows = normalizeRows((data.result || []).filter(isRow), moduleId, config);
       return json({ rows, type: writeType, typeAliases });
     } catch (error) {
       return json({ error: error instanceof Error ? error.message : "Sanity 讀取失敗" }, 500);
@@ -133,17 +111,28 @@ export const handler: Handlers = {
     if (configError) return json({ error: configError }, 400);
 
     try {
-      const body = await request.json();
-      const rows = Array.isArray(body.rows) ? body.rows : [body.row];
-      const mutations = rows.filter(Boolean).map((row: Row) => ({
-        create: {
-          _type: writeType,
-          ...cleanRow(row),
-        },
-      }));
-      if (mutations.length === 0) return json({ error: "沒有可寫入的資料" }, 400);
-      const result = await mutate(config, mutations);
-      return json({ result, type: writeType });
+      const body = await request.json() as { rows?: unknown; row?: unknown };
+      const sourceRows = Array.isArray(body.rows) ? body.rows : [body.row];
+      const rows = sourceRows.filter(isRow).map((row) => cleanRow(moduleId, row));
+      if (rows.length === 0) return json({ error: "沒有可寫入的資料" }, 400);
+
+      const validationErrors = rows.flatMap((row, index) =>
+        validateModuleRow(moduleId, row, { requireAll: true }).map((message) => `第 ${index + 1} 筆：${message}`)
+      );
+      if (validationErrors.length > 0) return json({ error: validationErrors.join("；") }, 400);
+
+      // Sanity 可接受批次 mutation，但將大量 CSV 分段能避免單一請求過大而失敗。
+      const results: unknown[] = [];
+      for (let start = 0; start < rows.length; start += 100) {
+        const mutations = rows.slice(start, start + 100).map((row) => ({
+          create: {
+            _type: writeType,
+            ...row,
+          },
+        }));
+        results.push(await mutate(config, mutations));
+      }
+      return json({ result: results.length === 1 ? results[0] : results, type: writeType, written: rows.length });
     } catch (error) {
       return json({ error: error instanceof Error ? error.message : "Sanity 寫入失敗" }, 500);
     }
@@ -159,15 +148,24 @@ export const handler: Handlers = {
     if (configError) return json({ error: configError }, 400);
 
     try {
-      const body = await request.json();
-      if (!body.id) return json({ error: "缺少 Sanity document id" }, 400);
+      const body = await request.json() as { id?: unknown; row?: unknown; unset?: unknown };
+      if (typeof body.id !== "string" || !body.id) return json({ error: "缺少 Sanity document id" }, 400);
+      const row = isRow(body.row) ? cleanRow(moduleId, body.row) : {};
+      const validationErrors = validateModuleRow(moduleId, row);
+      if (validationErrors.length > 0) return json({ error: validationErrors.join("；") }, 400);
+      const knownFields = new Set(getModuleFields(moduleId));
+      const unset = Array.isArray(body.unset)
+        ? [...new Set(body.unset.filter((field): field is string => typeof field === "string" && knownFields.has(field)))]
+        : [];
+      if (Object.keys(row).length === 0 && unset.length === 0) return json({ error: "沒有可更新的欄位" }, 400);
       const result = await mutate(config, [{
         patch: {
           id: body.id,
-          set: cleanRow(body.row || {}),
+          ...(Object.keys(row).length > 0 ? { set: row } : {}),
+          ...(unset.length > 0 ? { unset } : {}),
         },
       }]);
-      return json({ result });
+      return json({ result, type: writeType });
     } catch (error) {
       return json({ error: error instanceof Error ? error.message : "Sanity 更新失敗" }, 500);
     }

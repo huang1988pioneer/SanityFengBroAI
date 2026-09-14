@@ -4,13 +4,13 @@ import {
 } from "https://deno.land/std@0.224.0/assert/mod.ts";
 import {
   applyDensity,
-  applyPaper,
+  applyShell,
   applyTheme,
   emptyStateKind,
   hostLabel,
-  paperBootScript,
+  shellBootScript,
   resolveGroupLeaf,
-  type PaperTarget,
+  type ShellTarget,
 } from "./workbench.ts";
 
 const manage = {
@@ -53,9 +53,9 @@ Deno.test("emptyStateKind is no-rows vs no-search-hits for the same module", () 
   assertEquals(moduleId, "subscription");
 });
 
-Deno.test("applyPaper sets dark + compact on the document element datasets", () => {
-  const el: PaperTarget = { dataset: {} };
-  applyPaper(el, "dark", "compact");
+Deno.test("applyShell sets dark + compact on the document element datasets", () => {
+  const el: ShellTarget = { dataset: {} };
+  applyShell(el, "dark", "compact");
   assertEquals(el.dataset.theme, "dark");
   assertEquals(el.dataset.density, "compact");
   applyTheme(el, "light");
@@ -64,8 +64,8 @@ Deno.test("applyPaper sets dark + compact on the document element datasets", () 
   assertEquals(el.dataset.density, undefined);
 });
 
-Deno.test("paperBootScript is the FOUC boot shipped in the document head", () => {
-  assertEquals(paperBootScript.includes("fengbro.theme"), true);
-  assertEquals(paperBootScript.includes("fengbro.density"), true);
-  assertEquals(paperBootScript.includes("document.documentElement.dataset.theme"), true);
+Deno.test("shellBootScript is the FOUC boot shipped in the document head", () => {
+  assertEquals(shellBootScript.includes("fengbro.theme"), true);
+  assertEquals(shellBootScript.includes("fengbro.density"), true);
+  assertEquals(shellBootScript.includes("document.documentElement.dataset.theme"), true);
 });

@@ -1,6 +1,6 @@
 {
   "tasks": {
-    "check": "deno check dev.ts main.ts fresh.config.ts fresh.gen.ts routes/index.tsx routes/api/ islands/FengbroCrudApp.tsx lib/workbench.ts",
+    "check": "deno check dev.ts main.ts fresh.config.ts fresh.gen.ts routes/ islands/ lib/",
     "start": "deno run -A --watch=static/,routes/,islands/,lib/ dev.ts",
     "build": "deno run -A dev.ts build",
     "preview": "deno run -A main.ts",

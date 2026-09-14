@@ -1,6 +1,7 @@
 import type { Handlers } from "$fresh/server.ts";
 
-const imageModules = new Set(["images"]);
+// 食品與例行模組也有照片欄位；和圖片素材共用 Sanity image asset 上傳端點。
+const imageModules = new Set(["images", "food", "routine"]);
 const fileModules = new Set(["videos", "music", "documents", "podcast"]);
 
 function json(data: unknown, status = 200) {

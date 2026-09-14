@@ -1,4 +1,16 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
-  <rect width="64" height="64" rx="12" fill="#a05a22"/>
-  <text x="32" y="42" text-anchor="middle" font-family="Arial, sans-serif" font-size="34" font-weight="800" fill="#fff">鋒</text>
+  <defs>
+    <linearGradient id="bay" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#0d1622"/>
+      <stop offset="1" stop-color="#050a11"/>
+    </linearGradient>
+    <linearGradient id="edge" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#22d3ee"/>
+      <stop offset="1" stop-color="#816aff"/>
+    </linearGradient>
+  </defs>
+  <path d="M0 0h52l12 12v52H12L0 52Z" fill="url(#bay)"/>
+  <path d="M0 0h52l12 12v52H12L0 52Z" fill="none" stroke="url(#edge)" stroke-width="3"/>
+  <path d="M8 20h48M8 44h48" stroke="#22d3ee" stroke-width="1" opacity="0.28"/>
+  <text x="32" y="42" text-anchor="middle" font-family="Arial, sans-serif" font-size="30" font-weight="800" fill="#7cefff">鋒</text>
 </svg>

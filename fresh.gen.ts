@@ -9,7 +9,9 @@ import * as $api_tools_landtop from "./routes/api/tools/landtop.ts";
 import * as $api_tools_resolve from "./routes/api/tools/resolve.ts";
 import * as $api_tools_tube from "./routes/api/tools/tube.ts";
 import * as $index from "./routes/index.tsx";
+import * as $migrate from "./routes/migrate.tsx";
 import * as $FengbroCrudApp from "./islands/FengbroCrudApp.tsx";
+import * as $SanityMigrate from "./islands/SanityMigrate.tsx";
 import type { Manifest } from "$fresh/server.ts";
 
 const manifest = {
@@ -21,9 +23,11 @@ const manifest = {
     "./routes/api/tools/resolve.ts": $api_tools_resolve,
     "./routes/api/tools/tube.ts": $api_tools_tube,
     "./routes/index.tsx": $index,
+    "./routes/migrate.tsx": $migrate,
   },
   islands: {
     "./islands/FengbroCrudApp.tsx": $FengbroCrudApp,
+    "./islands/SanityMigrate.tsx": $SanityMigrate,
   },
   baseUrl: import.meta.url,
 } satisfies Manifest;
