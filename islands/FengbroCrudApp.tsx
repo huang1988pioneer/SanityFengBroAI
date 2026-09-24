@@ -8,6 +8,16 @@ import {
   resolveGroupLeaf,
   THEME_STORAGE_KEY,
 } from "../lib/workbench.ts";
+import {
+  type AttentionItem,
+  collectAttention,
+  countTones,
+  dueColumn,
+  dueRules,
+  dueStatus,
+  moduleMetrics,
+  sortByDue,
+} from "../lib/attention.ts";
 
 type FieldType = "text" | "number" | "date" | "datetime" | "time" | "url" | "boolean" | "textarea" | "password";
 
@@ -102,6 +112,15 @@ const currencyOptions: FieldOption[] = [
 ];
 
 const modules: Module[] = [
+  {
+    id: "home",
+    label: "鋒兄首頁",
+    shortLabel: "首頁",
+    icon: "home",
+    description: "值班台：把有日期的模組攤在一起，先看今天該處理什麼，再點進去改。",
+    fields: [],
+    seed: [],
+  },
   {
     id: "subscription",
     label: "鋒兄訂閱",
@@ -848,6 +867,8 @@ function Icon({ name }: { name: string }) {
     play: "M8 5v14l11-7z",
     chart: "M4 19V5M4 19h16M8 16l3-5 4 3 5-8",
     settings: "M12 8a4 4 0 1 0 0 8 4 4 0 0 0 0-8zM4 12H2M22 12h-2M12 4V2M12 22v-2M5 5l-1.5-1.5M20.5 20.5L19 19M19 5l1.5-1.5M3.5 20.5L5 19",
+    home: "M3 11l9-8 9 8M5 10v10h5v-6h4v6h5V10",
+    signal: "M2 12h4l3-8 4 16 3-8h6",
     info: "M12 22a10 10 0 1 0 0-20 10 10 0 0 0 0 20zM12 10v7M12 7h.01",
     grid: "M4 4h7v7H4zM13 4h7v7h-7zM4 13h7v7H4zM13 13h7v7h-7z",
     moon: "M21 13a9 9 0 1 1-10-10 7 7 0 0 0 10 10z",
@@ -905,6 +926,13 @@ function moduleLeaf(id: string): NavLeaf {
 
 const navGroups: NavGroup[] = [
   {
+    id: "home",
+    label: "鋒兄首頁",
+    short: "首頁",
+    icon: "home",
+    children: [moduleLeaf("home")],
+  },
+  {
     id: "manage",
     label: "鋒兄管理",
     short: "管理",
@@ -958,7 +986,7 @@ const navGroups: NavGroup[] = [
 ];
 
 const navLeaves = navGroups.flatMap((group) => group.children);
-const dockLeaves = ["subscription", "food", "notes", "tool:price"]
+const dockLeaves = ["home", "subscription", "food", "tool:price"]
   .map((id) => navLeaves.find((leaf) => leaf.key === id))
   .filter(Boolean) as NavLeaf[];
 const themeKey = THEME_STORAGE_KEY;
@@ -1602,6 +1630,187 @@ function ToolWorkbench({
   );
 }
 
+/** 值班台會讀的模組：有到期日的五個，加上銀行與例行兩張看板。 */
+const watchModuleIds = [...Object.keys(dueRules), "bank", "routine"];
+
+type WatchSlot = { rows: Row[]; error: string };
+
+const toneLabel: Record<AttentionItem["tone"], string> = {
+  overdue: "已過",
+  urgent: "緊急",
+  soon: "窗口內",
+};
+
+function HomeDeck({
+  settings,
+  todayLabel,
+  onOpen,
+  onSettings,
+}: {
+  settings: SanitySettings;
+  todayLabel: string;
+  onOpen: (moduleId: string, query?: string) => void;
+  onSettings: () => void;
+}) {
+  const [slots, setSlots] = useState<Record<string, WatchSlot>>({});
+  const [loading, setLoading] = useState(false);
+  const [fetchedAt, setFetchedAt] = useState("");
+  const [configMissing, setConfigMissing] = useState(false);
+  const [toneFilter, setToneFilter] = useState<AttentionItem["tone"] | "all">("all");
+  const requestId = useRef(0);
+
+  const load = async () => {
+    const current = ++requestId.current;
+    setLoading(true);
+    const results = await Promise.all(watchModuleIds.map(async (moduleId): Promise<[string, WatchSlot, boolean]> => {
+      try {
+        const response = await fetch(`/api/sanity/${moduleId}`, { headers: authHeaders(settings) });
+        const data = await response.json();
+        if (!response.ok) return [moduleId, { rows: [], error: data.error || "讀取失敗" }, Boolean(data.configMissing)];
+        return [moduleId, { rows: data.rows || [], error: "" }, false];
+      } catch (error) {
+        return [moduleId, { rows: [], error: error instanceof Error ? error.message : "讀取失敗" }, false];
+      }
+    }));
+    if (current !== requestId.current) return;
+    setSlots(Object.fromEntries(results.map(([id, slot]) => [id, slot])));
+    setConfigMissing(results.every(([, , missing]) => missing));
+    setFetchedAt(new Date().toISOString());
+    setLoading(false);
+  };
+
+  useEffect(() => {
+    void load();
+  }, [settings.projectId, settings.dataset, settings.token, settings.apiVersion]);
+
+  const attention = useMemo(
+    () => collectAttention(Object.fromEntries(Object.entries(slots).map(([id, slot]) => [id, slot.rows]))),
+    [slots],
+  );
+  const tones = countTones(attention);
+  const visible = toneFilter === "all" ? attention : attention.filter((item) => item.tone === toneFilter);
+  const failed = Object.entries(slots).filter(([, slot]) => slot.error);
+  const loaded = Object.keys(slots).length > 0;
+
+  return (
+    <section class="watch-deck" aria-label="值班台">
+      <article class="watch-mast">
+        <div class="watch-mast-copy">
+          <span class="watch-seal" aria-hidden="true"><Icon name="signal" /></span>
+          <div>
+            <p class="crumb">值班</p>
+            <h3>{todayLabel}</h3>
+            <p>
+              {loading && !loaded
+                ? "正在掃描各模組..."
+                : attention.length > 0
+                ? `${attention.length} 則訊號要處理，最急的排在最上面。`
+                : "各模組都在窗口外，今天沒有要趕的事。"}
+            </p>
+          </div>
+        </div>
+        <div class="watch-dials" role="group" aria-label="依緊急度篩選">
+          {(["overdue", "urgent", "soon"] as const).map((tone) => (
+            <button
+              type="button"
+              class={`watch-dial tone-${tone}${toneFilter === tone ? " on" : ""}`}
+              aria-pressed={toneFilter === tone}
+              onClick={() => setToneFilter((prev) => (prev === tone ? "all" : tone))}
+            >
+              <b>{toneLabel[tone]}</b>
+              <strong>{tones[tone]}</strong>
+            </button>
+          ))}
+          <button type="button" class="ghost-button compact watch-refresh" onClick={() => void load()} disabled={loading}>
+            {loading ? "掃描中..." : "重新掃描"}
+          </button>
+        </div>
+      </article>
+
+      {configMissing ? (
+        <div class="ledger-blank empty-no-rows watch-blank">
+          <strong>鑰匙櫃還是空的</strong>
+          <span>伺服器沒有 Sanity 環境變數，這台瀏覽器也還沒掛鑰匙。掛上之後值班台才讀得到資料。</span>
+          <button type="button" class="ghost-button" onClick={onSettings}>前往鋒兄設定</button>
+        </div>
+      ) : (
+        <div class="watch-split">
+          <section class="watch-feed" aria-label="待處理訊號">
+            <header class="watch-feed-head">
+              <div>
+                <p class="crumb">訊號</p>
+                <h4>{toneFilter === "all" ? "待處理" : toneLabel[toneFilter]} {visible.length} 則</h4>
+              </div>
+              {toneFilter !== "all" ? (
+                <button type="button" class="ghost-button compact" onClick={() => setToneFilter("all")}>全部</button>
+              ) : null}
+            </header>
+            {failed.length > 0 ? (
+              <p class="tool-warning">
+                {failed.map(([id, slot]) => `${moduleById[id].shortLabel}：${slot.error}`).join("；")}
+              </p>
+            ) : null}
+            {visible.length === 0 ? (
+              <div class="watch-quiet">
+                <strong>{loading ? "掃描中" : "線路安靜"}</strong>
+                <span>{loading ? "各模組讀完就會列在這裡。" : "沒有落在提醒窗口內的資料。"}</span>
+              </div>
+            ) : (
+              <ol class="watch-signals">
+                {visible.map((item) => (
+                  <li key={`${item.moduleId}:${item.id}`}>
+                    <button
+                      type="button"
+                      class={`watch-signal tone-${item.tone}`}
+                      onClick={() => onOpen(item.moduleId, item.name)}
+                      title={`開啟${moduleById[item.moduleId].label}並搜尋「${item.name}」`}
+                    >
+                      <span class="watch-tag">{moduleById[item.moduleId].shortLabel}</span>
+                      <span class="watch-name">
+                        <strong>{item.name}</strong>
+                        <small>{item.verb} {item.date}</small>
+                      </span>
+                      <span class="watch-count">{item.label}</span>
+                    </button>
+                  </li>
+                ))}
+              </ol>
+            )}
+          </section>
+
+          <section class="watch-board" aria-label="模組看板">
+            {watchModuleIds.map((moduleId) => {
+              const target = moduleById[moduleId];
+              const slot = slots[moduleId];
+              const rows = slot?.rows || [];
+              const [primary] = moduleMetrics(moduleId, rows);
+              const flagged = attention.filter((item) => item.moduleId === moduleId).length;
+              return (
+                <button
+                  type="button"
+                  class={`watch-tile${flagged ? " flagged" : ""}${slot?.error ? " broken" : ""}`}
+                  onClick={() => onOpen(moduleId)}
+                >
+                  <span class="watch-tile-icon"><Icon name={target.icon} /></span>
+                  <span class="watch-tile-copy">
+                    <b>{target.shortLabel}</b>
+                    <strong>{slot ? rows.length : "—"}</strong>
+                    <small>
+                      {slot?.error ? "讀取失敗" : primary ? `${primary.label} ${primary.value}` : ""}
+                    </small>
+                  </span>
+                  {flagged ? <em>{flagged}</em> : null}
+                </button>
+              );
+            })}
+            <p class="watch-stamp">掃描時間 {fetchedAt ? formatDateTime(fetchedAt) : "—"}</p>
+          </section>
+        </div>
+      )}
+    </section>
+  );
+}
+
 function AboutDesk({
   rows,
   draft,
@@ -2206,7 +2415,7 @@ function SettingsCabinet({
 export default function FengbroCrudApp() {
   const [rows, setRows] = useState<Row[]>([]);
   const [settings, setSettings] = useState<SanitySettings>(defaultSettings);
-  const [activeId, setActiveId] = useState("tools");
+  const [activeId, setActiveId] = useState("home");
   const [activeTool, setActiveTool] = useState<ToolTabId>("price");
   const [query, setQuery] = useState("");
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -2230,7 +2439,10 @@ export default function FengbroCrudApp() {
   const loadRequestId = useRef(0);
   const fileRef = useRef<HTMLInputElement>(null);
   const uploadRef = useRef<HTMLInputElement>(null);
+  /** 從值班台跳進模組時要帶的搜尋字；切模組的 effect 會先清空搜尋，所以另外存著。 */
+  const pendingQuery = useRef("");
   const activeModule = moduleById[activeId];
+  const isHome = activeId === "home";
   const isSettings = activeId === "settings";
   const isAbout = activeId === "about";
   const isNotes = activeId === "notes";
@@ -2331,7 +2543,7 @@ export default function FengbroCrudApp() {
   };
 
   const loadRows = async (moduleId = activeId, nextSettings = settings) => {
-    if (moduleId === "settings") return;
+    if (moduleId === "settings" || moduleId === "home") return;
     const requestId = ++loadRequestId.current;
     setLoading(true);
     setErrorText("");
@@ -2363,12 +2575,16 @@ export default function FengbroCrudApp() {
   useEffect(() => {
     setEditingId(null);
     setDraft(createEmptyRow(activeModule));
-    setQuery("");
+    setQuery(pendingQuery.current);
+    pendingQuery.current = "";
     setSelectedIds(new Set());
     setExpandedDocumentUrl("");
     if (isSettings) {
       setRows([]);
       setMessage("鑰匙只掛在這台瀏覽器");
+    } else if (isHome) {
+      setRows([]);
+      setMessage("值班台只讀不寫");
     } else {
       void loadRows(activeId);
     }
@@ -2376,19 +2592,27 @@ export default function FengbroCrudApp() {
 
   const filteredRows = useMemo(() => {
     const normalized = query.trim().toLowerCase();
-    if (!normalized) return rows;
-    return rows.filter((row) => Object.values(row).some((value) => String(value).toLowerCase().includes(normalized)));
-  }, [query, rows]);
+    const sorted = sortByDue(activeId, rows);
+    if (!normalized) return sorted;
+    return sorted.filter((row) => Object.values(row).some((value) => String(value).toLowerCase().includes(normalized)));
+  }, [query, rows, activeId]);
+  const dueHeader = dueColumn(activeId);
   const listEmptyKind = emptyStateKind({ totalRows: rows.length, query });
 
   const stats = useMemo(() => {
     const total = rows.length;
-    const money = rows.reduce((sum, row) => sum + Number(row.price ?? row.deposit ?? 0), 0);
-    const boolCount = rows.filter((row) => row.continue === true).length;
     const categories = new Set(rows.map((row) => String(row.category || "").trim()).filter(Boolean)).size;
     const linked = rows.filter((row) => noteLinks(row).length > 0).length;
-    return { total, money, boolCount, categories, linked };
-  }, [rows]);
+    return { total, categories, linked, metrics: moduleMetrics(activeId, rows) };
+  }, [rows, activeId]);
+  const dataModuleCount = modules.filter((module) => module.id !== "home").length;
+
+  const openFromHome = (moduleId: string, search = "") => {
+    const leaf = navLeaves.find((item) => item.key === moduleId);
+    if (!leaf) return;
+    pendingQuery.current = search;
+    goLeaf(leaf);
+  };
   const draftMediaUrl = moduleMediaUrl(activeId, draft);
 
   const updateDraft = (key: string, value: string | number | boolean) => {
@@ -2838,7 +3062,7 @@ export default function FengbroCrudApp() {
                   >
                     <Icon name={leaf.icon} />
                     <span>{leaf.label}</span>
-                    {isActive && !leaf.toolId && leaf.moduleId !== "settings" && (
+                    {isActive && !leaf.toolId && leaf.moduleId !== "settings" && leaf.moduleId !== "home" && (
                       <span class="nav-count">{rows.length}</span>
                     )}
                   </button>
@@ -2856,7 +3080,7 @@ export default function FengbroCrudApp() {
           </div>
           <div class="surface-pills">
             <span><b>今天</b>{todayLabel}</span>
-            <span><b>模組</b>{modules.length} 個</span>
+            <span><b>模組</b>{dataModuleCount} 個</span>
             <span><b>介面</b>{theme === "dark" ? "暗場" : "明場"} · {density === "compact" ? "密排" : "寬距"}</span>
           </div>
         </header>
@@ -2864,11 +3088,11 @@ export default function FengbroCrudApp() {
         <section class="console-card">
         <header class="topbar">
           <div>
-            <p class="crumb">{isAbout ? "誌" : isSettings ? "鑰匙" : isNotes ? "口袋" : "冊頁台"}</p>
-            <h2>{activeId === "tools" ? "鋒兄工具" : isAbout ? "鋒兄誌" : isSettings ? "鑰匙櫃" : isNotes ? "口袋冊" : activeModule.label}</h2>
+            <p class="crumb">{isHome ? "首頁" : isAbout ? "誌" : isSettings ? "鑰匙" : isNotes ? "口袋" : "冊頁台"}</p>
+            <h2>{activeId === "tools" ? "鋒兄工具" : isHome ? "值班台" : isAbout ? "鋒兄誌" : isSettings ? "鑰匙櫃" : isNotes ? "口袋冊" : activeModule.label}</h2>
             <p>{activeModule.description}</p>
           </div>
-          {!isSettings && !isAbout && activeId !== "tools" && (
+          {!isSettings && !isAbout && !isHome && activeId !== "tools" && (
             <div class="top-actions">
               <button type="button" class="ghost-button" onClick={() => void loadRows()}>重新載入</button>
               <button type="button" class="ghost-button" onClick={() => void importRows(activeModule.seed, "範例資料")}>匯入範例</button>
@@ -2879,7 +3103,14 @@ export default function FengbroCrudApp() {
           )}
         </header>
 
-        {isSettings ? (
+        {isHome ? (
+          <HomeDeck
+            settings={settings}
+            todayLabel={todayLabel}
+            onOpen={openFromHome}
+            onSettings={() => openFromHome("settings")}
+          />
+        ) : isSettings ? (
           <SettingsCabinet
             settings={settings}
             loading={loading}
@@ -2930,10 +3161,12 @@ export default function FengbroCrudApp() {
                   <div class="metric"><span>分類</span><strong>{stats.categories}</strong></div>
                 </>
               ) : (
-                <>
-                  <div class="metric"><span>金額合計</span><strong>{stats.money.toLocaleString("zh-TW")}</strong></div>
-                  <div class="metric"><span>續訂中</span><strong>{stats.boolCount}</strong></div>
-                </>
+                stats.metrics.map((metric) => (
+                  <div class={metric.tone ? `metric tone-${metric.tone}` : "metric"}>
+                    <span>{metric.label}</span>
+                    <strong class={metric.value.length > 12 ? "metric-long" : undefined}>{metric.value}</strong>
+                  </div>
+                ))
               )}
               <div class={errorText ? "metric status has-error" : "metric status"}>
                 <span>狀態</span>
@@ -3018,6 +3251,7 @@ export default function FengbroCrudApp() {
                             title={allFilteredSelected ? "取消全選" : "全選"}
                           />
                         </th>
+                        {dueHeader ? <th class="col-due">{dueHeader}</th> : null}
                         {activeModule.fields.slice(0, 6).map((field) => <th class={columnClass(field)}>{field.label}</th>)}
                         <th class="action-col">操作</th>
                       </tr>
@@ -3026,8 +3260,14 @@ export default function FengbroCrudApp() {
                       {filteredRows.map((row) => {
                         const rowId = String(row.id);
                         const isChecked = selectedIds.has(rowId);
+                        const due = dueHeader ? dueStatus(activeId, row) : null;
+                        const dueSkipped = Boolean(dueRules[activeId]?.skip?.(row));
+                        const rowClass = [
+                          isChecked ? "row-selected" : "",
+                          due && !dueSkipped && (due.tone === "overdue" || due.tone === "urgent") ? `row-due-${due.tone}` : "",
+                        ].filter(Boolean).join(" ");
                         return (
-                          <tr class={isChecked ? "row-selected" : ""}>
+                          <tr class={rowClass}>
                             <td class="check-col">
                               <input
                                 type="checkbox"
@@ -3035,6 +3275,17 @@ export default function FengbroCrudApp() {
                                 onChange={() => toggleSelect(rowId)}
                               />
                             </td>
+                            {dueHeader ? (
+                              <td class="col-due" data-label={dueHeader}>
+                                {due
+                                  ? (
+                                    <span class={`due-chip tone-${dueSkipped ? "calm" : due.tone}`} title={due.date}>
+                                      {due.label}
+                                    </span>
+                                  )
+                                  : <span class="due-chip tone-none">未排</span>}
+                              </td>
+                            ) : null}
                             {activeModule.fields.slice(0, 6).map((field) => (
                               <td class={columnClass(field)} data-label={field.label}>
                                 {field.type === "url" && row[field.key]
@@ -3091,6 +3342,7 @@ export default function FengbroCrudApp() {
                       {loading && filteredRows.length === 0 && [0, 1, 2, 3, 4].map((n) => (
                         <tr class="skeleton-row" aria-hidden="true" key={n}>
                           <td class="check-col"><span class="skeleton-bar" /></td>
+                          {dueHeader ? <td class="col-due"><span class="skeleton-bar" /></td> : null}
                           {activeModule.fields.slice(0, 6).map((field) => (
                             <td class={columnClass(field)} data-label={field.label}><span class="skeleton-bar" /></td>
                           ))}
@@ -3099,7 +3351,7 @@ export default function FengbroCrudApp() {
                       ))}
                       {!loading && filteredRows.length === 0 && (
                         <tr>
-                          <td colSpan={activeModule.fields.slice(0, 6).length + 2} class="empty-cell">
+                          <td colSpan={activeModule.fields.slice(0, 6).length + (dueHeader ? 3 : 2)} class="empty-cell">
                             <div class={`empty-state empty-${listEmptyKind}`}>
                               <span class="empty-icon"><Icon name={activeModule.icon} /></span>
                               <strong>

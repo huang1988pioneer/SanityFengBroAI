@@ -4561,3 +4561,455 @@ td .url {
 .metric.status.has-error strong {
   color: var(--danger);
 }
+
+/* ==========================================================================
+   值班台（鋒兄首頁）＋ 倒數欄
+   參考專案的首頁是一疊黃／橘／紅底提醒卡；這版改成終端的訊號列：
+   左邊一條緊急度色帶、等寬倒數靠右，數字卡當篩選鈕用。
+   ========================================================================== */
+
+.watch-deck {
+  display: grid;
+  gap: var(--gap-stack);
+}
+
+.watch-mast {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: end;
+  gap: 18px;
+  border: 1px solid var(--line-soft);
+  border-radius: var(--radius-3xl);
+  background:
+    radial-gradient(120% 140% at 100% 0%, color-mix(in oklab, var(--hint) 12%, transparent) 0%, transparent 55%),
+    linear-gradient(180deg, color-mix(in oklab, var(--clay) 8%, var(--sheet)) 0%, var(--sheet) 70%);
+  box-shadow: var(--shadow-soft);
+  padding: 1.15rem 1.3rem 1.2rem;
+}
+
+.watch-mast-copy {
+  display: flex;
+  align-items: flex-start;
+  gap: 14px;
+  min-width: 0;
+}
+
+.watch-seal {
+  display: grid;
+  width: 42px;
+  height: 42px;
+  flex: 0 0 auto;
+  place-items: center;
+  border: 1px solid color-mix(in oklab, var(--clay) 45%, var(--line-strong));
+  background: color-mix(in oklab, var(--clay) 14%, var(--sheet));
+  color: var(--clay-deep);
+  clip-path: polygon(8px 0, 100% 0, 100% calc(100% - 8px), calc(100% - 8px) 100%, 0 100%, 0 8px);
+}
+
+.watch-seal svg,
+.watch-tile-icon svg {
+  width: 20px;
+  height: 20px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.8;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.watch-mast h3 {
+  margin: 6px 0 0;
+  color: var(--ink);
+  font-family: var(--font-display);
+  font-size: clamp(1.4rem, 1.2rem + 0.6vw, 1.8rem);
+  font-weight: 600;
+  letter-spacing: -0.02em;
+}
+
+.watch-mast p:not(.crumb) {
+  margin: 8px 0 0;
+  color: var(--quiet);
+  font-size: var(--text-sm);
+  line-height: 1.6;
+}
+
+.watch-dials {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: stretch;
+  justify-content: flex-end;
+  gap: 10px;
+}
+
+.watch-dial {
+  display: grid;
+  min-width: 96px;
+  gap: 4px;
+  border: 1px solid var(--line-soft);
+  border-top: 2px solid var(--tone, var(--quiet));
+  border-radius: var(--radius);
+  background: var(--sheet);
+  padding: 10px 14px 12px;
+  color: var(--ink);
+  text-align: left;
+  cursor: pointer;
+  transition: border-color var(--duration-fast) var(--ease-out), background var(--duration-fast) var(--ease-out);
+}
+
+.watch-dial b {
+  color: var(--quiet);
+  font-family: var(--font-mono);
+  font-size: var(--text-2xs);
+  font-weight: 500;
+  letter-spacing: 0.14em;
+}
+
+.watch-dial strong {
+  color: var(--tone, var(--quiet));
+  font-family: var(--font-mono);
+  font-size: 1.7rem;
+  font-variant-numeric: tabular-nums;
+  line-height: 1;
+}
+
+.watch-dial:hover,
+.watch-dial.on {
+  border-color: color-mix(in oklab, var(--tone, var(--quiet)) 55%, var(--line-soft));
+  background: color-mix(in oklab, var(--tone, var(--quiet)) 9%, var(--sheet));
+}
+
+.watch-dial:focus-visible,
+.watch-signal:focus-visible,
+.watch-tile:focus-visible {
+  outline: 2px solid var(--focus);
+  outline-offset: 2px;
+}
+
+.tone-overdue { --tone: var(--danger); }
+.tone-urgent { --tone: var(--warn); }
+.tone-soon { --tone: var(--clay-deep); }
+.tone-calm { --tone: var(--ok); }
+.tone-since { --tone: var(--hint); }
+.tone-none { --tone: var(--quiet); }
+
+.watch-refresh {
+  align-self: center;
+}
+
+.watch-split {
+  display: grid;
+  grid-template-columns: minmax(0, 1.55fr) minmax(280px, 1fr);
+  align-items: start;
+  gap: var(--gap-stack);
+}
+
+.watch-feed,
+.watch-board {
+  border: 1px solid var(--line-soft);
+  border-radius: var(--radius-3xl);
+  background: var(--sheet);
+  box-shadow: var(--shadow-soft);
+  padding: var(--pad-panel);
+}
+
+.watch-feed-head {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+
+.watch-feed-head h4 {
+  margin: 4px 0 0;
+  font-size: var(--text-lg);
+}
+
+.watch-signals {
+  display: grid;
+  gap: 6px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.watch-signal {
+  display: grid;
+  width: 100%;
+  grid-template-columns: 4.5rem minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 12px;
+  border: 1px solid var(--line-soft);
+  border-left: 3px solid var(--tone, var(--quiet));
+  border-radius: var(--radius);
+  background: color-mix(in oklab, var(--tone, var(--quiet)) 5%, var(--sheet));
+  padding: 10px 12px;
+  color: var(--ink);
+  text-align: left;
+  cursor: pointer;
+  transition: background var(--duration-fast) var(--ease-out), border-color var(--duration-fast) var(--ease-out);
+}
+
+.watch-signal:hover {
+  border-color: color-mix(in oklab, var(--tone, var(--quiet)) 45%, var(--line-soft));
+  background: color-mix(in oklab, var(--tone, var(--quiet)) 11%, var(--sheet));
+}
+
+.watch-tag {
+  overflow: hidden;
+  color: var(--quiet);
+  font-family: var(--font-mono);
+  font-size: var(--text-2xs);
+  letter-spacing: 0.12em;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.watch-name {
+  display: grid;
+  min-width: 0;
+  gap: 2px;
+}
+
+.watch-name strong {
+  overflow: hidden;
+  font-size: var(--text-sm);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.watch-name small {
+  color: var(--quiet);
+  font-family: var(--font-mono);
+  font-size: var(--text-2xs);
+  font-variant-numeric: tabular-nums;
+}
+
+.watch-count {
+  color: var(--tone, var(--quiet));
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  font-variant-numeric: tabular-nums;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.watch-quiet {
+  display: grid;
+  gap: 4px;
+  border: 1px dashed var(--line-strong);
+  border-radius: var(--radius-2xl);
+  padding: 22px 18px;
+  color: var(--quiet);
+  text-align: center;
+}
+
+.watch-quiet strong {
+  color: var(--ok);
+  font-family: var(--font-mono);
+  letter-spacing: 0.12em;
+}
+
+.watch-board {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.watch-tile {
+  position: relative;
+  display: flex;
+  min-width: 0;
+  align-items: flex-start;
+  gap: 10px;
+  border: 1px solid var(--line-soft);
+  border-radius: var(--radius-2xl);
+  background: var(--panel-soft);
+  padding: 12px;
+  color: var(--ink);
+  text-align: left;
+  cursor: pointer;
+  transition: border-color var(--duration-fast) var(--ease-out), transform var(--duration-fast) var(--ease-out);
+}
+
+.watch-tile:hover {
+  border-color: color-mix(in oklab, var(--clay) 40%, var(--line-soft));
+  transform: translateY(-1px);
+}
+
+.watch-tile.flagged {
+  border-color: color-mix(in oklab, var(--warn) 45%, var(--line-soft));
+}
+
+.watch-tile.broken {
+  border-style: dashed;
+  border-color: color-mix(in oklab, var(--danger) 45%, var(--line-soft));
+}
+
+.watch-tile-icon {
+  display: grid;
+  width: 30px;
+  height: 30px;
+  flex: 0 0 auto;
+  place-items: center;
+  border-radius: var(--radius);
+  background: var(--clay-mist);
+  color: var(--clay-deep);
+}
+
+.watch-tile-copy {
+  display: grid;
+  min-width: 0;
+  gap: 2px;
+}
+
+.watch-tile-copy b {
+  color: var(--quiet);
+  font-family: var(--font-mono);
+  font-size: var(--text-2xs);
+  letter-spacing: 0.12em;
+}
+
+.watch-tile-copy strong {
+  font-family: var(--font-mono);
+  font-size: var(--text-xl);
+  font-variant-numeric: tabular-nums;
+  line-height: 1.1;
+}
+
+.watch-tile-copy small {
+  overflow: hidden;
+  color: var(--quiet);
+  font-size: var(--text-2xs);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.watch-tile em {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  min-width: 20px;
+  border-radius: var(--radius-xs);
+  background: var(--warn);
+  padding: 1px 6px;
+  color: var(--paper);
+  font-family: var(--font-mono);
+  font-size: var(--text-2xs);
+  font-style: normal;
+  font-weight: 700;
+  text-align: center;
+}
+
+.watch-stamp {
+  grid-column: 1 / -1;
+  margin: 4px 0 0;
+  color: var(--quiet);
+  font-family: var(--font-mono);
+  font-size: var(--text-2xs);
+  letter-spacing: 0.06em;
+}
+
+.watch-blank {
+  margin: 0;
+}
+
+/* 倒數欄 */
+.col-due {
+  width: 7.5rem;
+  white-space: nowrap;
+}
+
+.due-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  border: 1px solid color-mix(in oklab, var(--tone, var(--quiet)) 40%, transparent);
+  border-radius: var(--radius-pill);
+  background: color-mix(in oklab, var(--tone, var(--quiet)) 10%, transparent);
+  padding: 2px 8px;
+  color: var(--tone, var(--quiet));
+  font-family: var(--font-mono);
+  font-size: var(--text-2xs);
+  font-variant-numeric: tabular-nums;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.due-chip::before {
+  content: "";
+  width: 6px;
+  height: 6px;
+  flex: 0 0 auto;
+  background: var(--tone, var(--quiet));
+}
+
+.due-chip.tone-overdue::before {
+  box-shadow: 0 0 8px var(--tone, var(--quiet));
+}
+
+.table-scroll tbody tr.row-due-overdue td.col-due {
+  box-shadow: inset 3px 0 0 var(--danger);
+}
+
+.table-scroll tbody tr.row-due-urgent td.col-due {
+  box-shadow: inset 3px 0 0 var(--warn);
+}
+
+/* 模組指標：告警色只在數字大於零時出現 */
+.metric.tone-alert::before { background: var(--danger); box-shadow: 0 0 10px color-mix(in oklab, var(--danger) 60%, transparent); }
+.metric.tone-alert strong { color: var(--danger); }
+.metric.tone-warn::before { background: var(--warn); box-shadow: 0 0 10px color-mix(in oklab, var(--warn) 60%, transparent); }
+.metric.tone-warn strong { color: var(--warn); }
+
+.metric strong.metric-long {
+  font-size: var(--text-base);
+  line-height: 1.35;
+  overflow-wrap: anywhere;
+}
+
+@media (max-width: 1100px) {
+  .watch-split {
+    grid-template-columns: 1fr;
+  }
+
+  .watch-board {
+    grid-template-columns: repeat(auto-fill, minmax(170px, 1fr));
+  }
+}
+
+@media (max-width: 767px) {
+  .watch-mast {
+    grid-template-columns: 1fr;
+  }
+
+  .watch-dials {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
+  .watch-dial {
+    min-width: 0;
+  }
+
+  .watch-refresh {
+    grid-column: 1 / -1;
+  }
+
+  .watch-signal {
+    grid-template-columns: minmax(0, 1fr) auto;
+    gap: 4px 10px;
+  }
+
+  .watch-tag {
+    grid-column: 1 / -1;
+  }
+
+  .watch-board {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .col-due {
+    width: auto;
+  }
+}
